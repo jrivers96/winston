@@ -29,9 +29,11 @@ Supercalc-shaped offline case (`supercalc-late-correction`):
 ```bash
 winston replay --case supercalc-late-correction --offline
 winston replay --bundle supercalc-stress-s2-correction --offline
+winston doctor --profile supercalc_live
+winston live-smoke --profile supercalc_live   # reports missing live config unless opted in
 ```
 
-See [docs/continual-testing.md](docs/continual-testing.md) for CI, recorded fixtures, and nightly layers.
+See [docs/continual-testing.md](docs/continual-testing.md) for CI, recorded fixtures, nightly, and live-smoke layers.
 
 ## Quick Start
 

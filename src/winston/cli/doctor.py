@@ -52,6 +52,18 @@ def run_doctor(profile_name: str) -> dict[str, Any]:
     # Check repositories from registry
     repos_result = check_registry(settings.registry_dir)
     results["repositories"] = repos_result
+
+    # Live source-contract validation for live / *_live profiles
+    if profile_name.endswith("_live") or profile_name.endswith(".live"):
+        from winston.sources.contracts import validate_live_profile_file
+
+        live_contract = validate_live_profile_file(profile_name, settings.profiles_dir)
+        results["live_contract"] = live_contract
+        if not live_contract.get("ready_for_live_smoke"):
+            # Incomplete live contracts are expected for templates — not fatal for doctor
+            results["live_contract_ready"] = False
+        else:
+            results["live_contract_ready"] = True
     
     return results
 
@@ -67,22 +79,29 @@ def load_profile(profile_name: str, profiles_dir: Path) -> dict[str, Any]:
         Dict with profile loading result
     """
     profile_path = profiles_dir / f"{profile_name}.yaml"
-    
+    example_path = profiles_dir / f"{profile_name}.yaml.example"
+    is_example = False
+
     if not profile_path.exists():
-        return {
-            "name": profile_name,
-            "loaded": False,
-            "error": f"Profile file not found: {profile_path}",
-        }
+        if example_path.exists():
+            profile_path = example_path
+            is_example = True
+        else:
+            return {
+                "name": profile_name,
+                "loaded": False,
+                "error": f"Profile file not found: {profile_path}",
+            }
     
     try:
         with open(profile_path) as f:
-            profile_data = yaml.safe_load(f)
+            profile_data = yaml.safe_load(f) or {}
         
         return {
             "name": profile_name,
             "loaded": True,
             "path": str(profile_path),
+            "is_example": is_example,
             "indices": len(profile_data.get("indices", [])),
             "calendars": len(profile_data.get("calendars", [])),
         }

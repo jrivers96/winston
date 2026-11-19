@@ -109,6 +109,25 @@ def _print_doctor_results(results: dict) -> None:
     for repo in repos.get("items", []):
         repo_status = "✓" if repo.get("accessible") else "?"
         console.print(f"    [{repo_status}] {repo.get('id')}: {repo.get('role')}")
+
+    live_contract = results.get("live_contract")
+    if live_contract:
+        ready = live_contract.get("ready_for_live_smoke")
+        mark = "✓" if ready else "○"
+        color = "green" if ready else "yellow"
+        console.print(
+            f"\n  [{color}]{mark}[/{color}] Live contract: "
+            f"{live_contract.get('capability_label', 'live-template')}"
+        )
+        if live_contract.get("path"):
+            console.print(f"      Path: {live_contract.get('path')}")
+        missing = live_contract.get("missing") or []
+        if missing:
+            console.print(f"      Missing ({len(missing)}):")
+            for item in missing[:12]:
+                console.print(f"        - {item}")
+            if len(missing) > 12:
+                console.print(f"        … {len(missing) - 12} more")
     
     # Overall
     console.print()
@@ -301,6 +320,57 @@ def replay(
                 console.print(f"    [{color}]{mark}[/{color}] {name}")
 
     if not report.get("passed", False):
+        raise typer.Exit(1)
+
+
+@app.command("live-smoke")
+def live_smoke(
+    profile: str = typer.Option("supercalc_live", "--profile", "-p"),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Skip env-flag gate (still requires contracts/credentials)",
+    ),
+    output_format: str = typer.Option("text", "--format", "-f"),
+) -> None:
+    """Opt-in live smoke. Reports missing config; never blocks offline CI."""
+    from winston.evaluation.live_smoke import run_live_smoke
+
+    report = run_live_smoke(profile_name=profile, force=force)
+
+    if output_format == "json":
+        _output_json(report)
+    else:
+        console.print(f"\n[bold]Live smoke[/bold] profile={profile}")
+        console.print(f"  Capability: {report.get('capability_label')}")
+        console.print(f"  Passed: {report.get('passed')}")
+        console.print(f"  Network attempted: {report.get('network_attempted')}")
+        missing = report.get("missing_configuration") or []
+        if missing:
+            console.print(f"  Missing configuration ({len(missing)}):")
+            for item in missing[:20]:
+                console.print(f"    - {item}")
+            if len(missing) > 20:
+                console.print(f"    … {len(missing) - 20} more")
+        for check in report.get("checks", []):
+            status = check.get("status")
+            color = {
+                "pass": "green",
+                "fail": "red",
+                "blocked": "yellow",
+                "incomplete": "yellow",
+            }.get(status, "white")
+            console.print(
+                f"  [{color}]{status}[/{color}] {check.get('id')}: {check.get('detail')}"
+            )
+        console.print(
+            "  Forbidden ops: "
+            + ", ".join(report.get("forbidden_operations") or [])
+        )
+
+    # Exit 0 when reporting incomplete template (expected without credentials).
+    # Exit 1 only when opted-in live run was attempted and failed hard.
+    if report.get("network_attempted") and not report.get("passed"):
         raise typer.Exit(1)
 
 

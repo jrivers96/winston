@@ -1,0 +1,72 @@
+name: Live smoke (opt-in)
+
+# Never runs on pull_request. Manual only.
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "Live profile name"
+        required: true
+        default: "supercalc_live"
+      force:
+        description: "Skip env-flag gate inside the runner (still needs contracts)"
+        required: false
+        default: "false"
+
+jobs:
+  live-smoke:
+    name: Opt-in live smoke report
+    runs-on: ubuntu-latest
+    env:
+      # Explicit opt-in. Without secrets/contracts this reports missing config.
+      WINSTON_LIVE_SMOKE: "1"
+      WINSTON_OFFLINE_MODE: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package (with optional live extras)
+        run: pip install -e ".[dev,databricks,datadog]"
+
+      - name: Doctor live profile contracts
+        run: winston doctor --profile ${{ inputs.profile }} --format json > doctor-live.json
+
+      - name: Run live smoke
+        run: |
+          ARGS=(--profile "${{ inputs.profile }}" --format json)
+          if [ "${{ inputs.force }}" = "true" ]; then
+            ARGS+=(--force)
+          fi
+          # Capture report even when exit code is 1 (attempted but incomplete)
+          set +e
+          winston live-smoke "${ARGS[@]}" > live-smoke-report.json
+          code=$?
+          set -e
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path("live-smoke-report.json").read_text())
+          print(json.dumps({
+              "capability_label": report.get("capability_label"),
+              "passed": report.get("passed"),
+              "network_attempted": report.get("network_attempted"),
+              "missing_count": len(report.get("missing_configuration") or []),
+          }, indent=2))
+          # Incomplete template without credentials is an expected informative result.
+          if report.get("capability_label") == "live-template" and not report.get("network_attempted"):
+              raise SystemExit(0)
+          raise SystemExit(0 if report.get("passed") else 1)
+          PY
+
+      - name: Upload live smoke artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-smoke-report
+          path: |
+            doctor-live.json
+            live-smoke-report.json

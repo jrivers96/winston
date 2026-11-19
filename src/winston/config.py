@@ -76,6 +76,25 @@ class WinstonSettings(BaseSettings):
         default=True,
         description="When true, block all live network adapters",
     )
+
+    live_smoke: bool = Field(
+        default=False,
+        description="Opt-in live smoke (also requires WINSTON_LIVE_SMOKE=1)",
+    )
+
+    # Live smoke budgets (overridable by profile)
+    live_smoke_max_dates: int = Field(
+        default=3,
+        description="Max business dates per live smoke run",
+    )
+    live_smoke_max_rows: int = Field(
+        default=500,
+        description="Max rows per live smoke query",
+    )
+    live_smoke_max_seconds: int = Field(
+        default=60,
+        description="Max seconds per live smoke run",
+    )
     
     # Budgets
     max_repositories_per_investigation: int = Field(

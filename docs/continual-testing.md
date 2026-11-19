@@ -49,7 +49,25 @@ winston replay --bundle supercalc-stress-s2-correction --offline
 
 Staging/nightly Cloud resources belong in a dedicated GCP project. See `ops/winston-ops/README.md` for the skeleton. Local Dev Container + GitHub Actions remain the default until that project is provisioned.
 
+## Phase D — Opt-in live smoke
+
+- Template: `profiles/supercalc_live.yaml.example` (empty slots — no invented production names)
+- Copy to `profiles/supercalc_live.yaml` (gitignored) and fill real mappings
+- Gate: `WINSTON_LIVE_SMOKE=1` and `WINSTON_OFFLINE_MODE=false`
+- CLI: `winston live-smoke --profile supercalc_live`
+- Doctor: `winston doctor --profile supercalc_live` lists missing contract fields
+- CI: `.github/workflows/live-smoke.yml` is **workflow_dispatch only** (never on PRs)
+- Labels: incomplete config → `live-template`; successful verified reads → `live-verified`
+- Forbidden: mutate / trigger jobs / publish / remediate
+
+```bash
+winston doctor --profile supercalc_live
+WINSTON_OFFLINE_MODE=false WINSTON_LIVE_SMOKE=1 winston live-smoke --profile supercalc_live
+```
+
+Without filled contracts/credentials, live-smoke exits informatively with a precise missing-configuration list.
+
 ## Still ahead
 
-- **Phase D** — opt-in live smoke behind source contracts
+- **Provision `winston-ops` GCP** — Cloud SQL / scheduler for staging nightly (skeleton in `ops/winston-ops/`)
 - **Phase E** — schedule `maintain` and map Supercalc trust/SLA checks into Winston issues

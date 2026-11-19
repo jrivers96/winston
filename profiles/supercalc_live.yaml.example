@@ -1,0 +1,124 @@
+# Supercalc LIVE profile template (incomplete by design)
+# Copy to profiles/supercalc_live.yaml (gitignored locally) and fill real values.
+# Do NOT invent production table/metric names. Leave blanks until known.
+# Secrets stay in env / Secret Manager — never in this file.
+
+profile_id: supercalc_live
+description: "Opt-in live read-only smoke for Supercalc-shaped products"
+version: "0.1.0"
+capability_label: live-template  # becomes live-verified only after successful smoke
+
+live_smoke:
+  enabled_by_default: false
+  require_env_flag: WINSTON_LIVE_SMOKE
+  budgets:
+    max_business_dates: 3
+    max_rows: 500
+    max_seconds: 60
+    max_metric_series: 20
+  allowed_operations:
+    - read_executions
+    - read_manifests
+    - read_state_refs
+    - query_metrics
+  forbidden_operations:
+    - mutate_data
+    - trigger_jobs
+    - publish_results
+    - remediate_production
+
+databricks:
+  auth_method: ""              # e.g. oauth_m2m | pat
+  host: ""                     # workspace host
+  warehouse_id: ""
+  catalog: ""
+  credential_provider: ""      # reference only, no secret value
+  statement_timeout_seconds: 60
+  mappings:
+    index_definitions:
+      table_name: ""
+      columns:
+        index_id: ""
+        environment: ""
+        owner: ""
+        calendar_ref: ""
+        timezone: ""
+    calendars:
+      table_name: ""
+      columns:
+        calendar_id: ""
+        business_date: ""
+        is_calculation_day: ""
+        previous_calculation_date: ""
+        timezone: ""
+    executions:
+      table_name: ""
+      columns:
+        execution_id: ""
+        index_id: ""
+        environment: ""
+        business_date: ""
+        attempt_id: ""
+        start_time: ""
+        end_time: ""
+        status: ""
+        input_manifest_id: ""
+        code_manifest_id: ""
+        output_ref: ""
+        state_ref: ""
+    input_manifests:
+      table_name: ""
+      columns:
+        manifest_id: ""
+        execution_id: ""
+        parent_state_refs: ""
+        input_dataset_refs: ""
+        configuration_ref: ""
+    artifacts:
+      table_name: ""
+      columns:
+        artifact_id: ""
+        execution_id: ""
+        artifact_type: ""
+        schema_version: ""
+        content_hash: ""
+        storage_ref: ""
+    selected_revisions:
+      table_name: ""
+      columns:
+        index_id: ""
+        environment: ""
+        business_date: ""
+        selected_execution_id: ""
+        selection_policy: ""
+        selection_time: ""
+
+datadog:
+  site: ""                     # e.g. datadoghq.com
+  auth_method: ""              # api_key | oauth
+  credential_provider: ""
+  metrics: []                  # fill with real metric names only when known
+  # Example shape (leave empty in template):
+  # - name: ""
+  #   service_tag: ""
+  #   environment_tag: ""
+  #   aggregation: ""
+  services: []
+  # - index_id: ""
+  #   datadog_service: ""
+  #   datadog_env: ""
+
+indices:
+  - id: ""                     # live index id once known
+    environment: ""
+    owner: ""
+    calendar_ref: ""
+    timezone: ""
+    description: "Fill with real Supercalc product identity — do not invent"
+
+required_env:
+  - WINSTON_LIVE_SMOKE=1
+  # Credential env names are organization-specific; document references only:
+  # - DATABRICKS_HOST (or provider-specific)
+  # - DATABRICKS_TOKEN / OAuth via credential_provider
+  # - DD_API_KEY / DD_APP_KEY via credential_provider

@@ -1,0 +1,183 @@
+"""Source-contract validation for live profiles.
+
+Reports precise missing configuration. Never invents production names.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+import yaml
+
+
+REQUIRED_DATABRICKS_TOP = ("host", "warehouse_id", "catalog", "auth_method", "credential_provider")
+REQUIRED_DATABRICKS_MAPPINGS = (
+    "index_definitions",
+    "calendars",
+    "executions",
+    "input_manifests",
+    "artifacts",
+    "selected_revisions",
+)
+REQUIRED_DATADOG_TOP = ("site", "auth_method", "credential_provider")
+
+
+def load_profile_yaml(path: Path) -> Dict[str, Any]:
+    """Load a YAML profile file."""
+    if not path.exists():
+        raise FileNotFoundError(f"Profile not found: {path}")
+    data = yaml.safe_load(path.read_text()) or {}
+    if not isinstance(data, dict):
+        raise ValueError(f"Profile must be a mapping: {path}")
+    return data
+
+
+def _blank(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str) and not value.strip():
+        return True
+    if isinstance(value, (list, dict)) and len(value) == 0:
+        return True
+    return False
+
+
+def _check_mapping_table(
+    mapping_name: str,
+    mapping: Any,
+    missing: List[str],
+) -> None:
+    prefix = f"databricks.mappings.{mapping_name}"
+    if not isinstance(mapping, dict):
+        missing.append(f"{prefix} (missing object)")
+        return
+    if _blank(mapping.get("table_name")):
+        missing.append(f"{prefix}.table_name")
+    columns = mapping.get("columns") or {}
+    if not isinstance(columns, dict) or not columns:
+        missing.append(f"{prefix}.columns")
+        return
+    for col_name, col_value in columns.items():
+        if _blank(col_value):
+            missing.append(f"{prefix}.columns.{col_name}")
+
+
+def validate_live_contract(profile_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Validate a live profile's source contracts.
+
+    Returns a structured report with missing fields and readiness.
+    """
+    missing: List[str] = []
+    warnings: List[str] = []
+
+    live = profile_data.get("live_smoke") or {}
+    if live.get("enabled_by_default"):
+        warnings.append(
+            "live_smoke.enabled_by_default should be false; require WINSTON_LIVE_SMOKE"
+        )
+
+    databricks = profile_data.get("databricks") or {}
+    for key in REQUIRED_DATABRICKS_TOP:
+        if _blank(databricks.get(key)):
+            missing.append(f"databricks.{key}")
+
+    mappings = databricks.get("mappings") or {}
+    for mapping_name in REQUIRED_DATABRICKS_MAPPINGS:
+        _check_mapping_table(mapping_name, mappings.get(mapping_name), missing)
+
+    datadog = profile_data.get("datadog") or {}
+    for key in REQUIRED_DATADOG_TOP:
+        if _blank(datadog.get(key)):
+            missing.append(f"datadog.{key}")
+    if _blank(datadog.get("metrics")):
+        missing.append("datadog.metrics (at least one configured metric)")
+    if _blank(datadog.get("services")):
+        warnings.append("datadog.services is empty — metric correlation may be limited")
+
+    indices = profile_data.get("indices") or []
+    if not indices:
+        missing.append("indices (at least one live index identity)")
+    else:
+        for i, index in enumerate(indices):
+            if not isinstance(index, dict) or _blank(index.get("id")):
+                missing.append(f"indices[{i}].id")
+
+    forbidden = (live.get("forbidden_operations") or [])
+    for op in ("mutate_data", "trigger_jobs", "publish_results"):
+        if op not in forbidden:
+            warnings.append(f"live_smoke.forbidden_operations should include '{op}'")
+
+    ready = len(missing) == 0
+    return {
+        "ready_for_live_smoke": ready,
+        "missing": missing,
+        "warnings": warnings,
+        "capability_label": "live-verified" if ready else "live-template",
+        "databricks_configured": all(
+            not _blank(databricks.get(k)) for k in REQUIRED_DATABRICKS_TOP
+        ),
+        "datadog_configured": all(
+            not _blank(datadog.get(k)) for k in REQUIRED_DATADOG_TOP
+        ),
+    }
+
+
+def resolve_live_profile_path(
+    profile_name: str,
+    profiles_dir: Path,
+) -> Tuple[Optional[Path], List[str]]:
+    """Resolve a live profile path, preferring real yaml then .example."""
+    notes: List[str] = []
+    real = profiles_dir / f"{profile_name}.yaml"
+    example = profiles_dir / f"{profile_name}.yaml.example"
+
+    if real.exists():
+        return real, notes
+
+    if example.exists():
+        notes.append(
+            f"Using example template {example.name}; "
+            f"copy to {real.name} and fill contracts before live verification"
+        )
+        return example, notes
+
+    return None, [f"Neither {real} nor {example} exists"]
+
+
+def validate_live_profile_file(
+    profile_name: str,
+    profiles_dir: Path,
+) -> Dict[str, Any]:
+    """Load and validate a live profile from disk."""
+    path, notes = resolve_live_profile_path(profile_name, profiles_dir)
+    if path is None:
+        return {
+            "loaded": False,
+            "ready_for_live_smoke": False,
+            "missing": notes,
+            "warnings": [],
+            "capability_label": "live-template",
+            "path": None,
+        }
+
+    data = load_profile_yaml(path)
+    report = validate_live_contract(data)
+    report.update(
+        {
+            "loaded": True,
+            "path": str(path),
+            "is_example": path.name.endswith(".example"),
+            "notes": notes,
+            "profile_id": data.get("profile_id"),
+        }
+    )
+    if report.get("is_example"):
+        report["ready_for_live_smoke"] = False
+        report["capability_label"] = "live-template"
+        if "Copy example to a real profile and fill mappings" not in report["missing"]:
+            report["missing"] = [
+                "Copy profiles/supercalc_live.yaml.example to "
+                "profiles/supercalc_live.yaml and fill non-empty mappings"
+            ] + list(report.get("missing", []))
+    return report

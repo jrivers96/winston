@@ -14,6 +14,10 @@ from winston.sources.datadog import (
     DatadogFixtureReader,
     DatadogLiveReader,
 )
+from winston.sources.contracts import (
+    validate_live_contract,
+    validate_live_profile_file,
+)
 
 __all__ = [
     "SourceAdapter",
@@ -27,4 +31,6 @@ __all__ = [
     "DatadogConfig",
     "DatadogFixtureReader",
     "DatadogLiveReader",
+    "validate_live_contract",
+    "validate_live_profile_file",
 ]

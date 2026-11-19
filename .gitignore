@@ -55,6 +55,11 @@ dmypy.json
 .env.local
 .env.*.local
 
+# Filled live profiles may contain org-specific mapping names — keep local
+profiles/supercalc_live.yaml
+profiles/*_live.yaml
+!profiles/*.yaml.example
+
 # Logs
 *.log
 
