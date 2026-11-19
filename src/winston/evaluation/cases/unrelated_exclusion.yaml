@@ -1,0 +1,43 @@
+case_id: unrelated_exclusion
+title: Exclude DEMO_UNRELATED from correction findings
+description: >
+  Raw logs mention DEMO_UNRELATED alongside the corrected DEMO chain. Correct
+  findings must not treat DEMO_UNRELATED as impacted.
+scenario: corrected
+index_id: DEMO
+business_date: D3
+question: >
+  After the D2 correction, which indices are impacted? Explicitly exclude any
+  unrelated indices that appear in the same log window.
+ground_truth:
+  root_cause: d2_q_correction
+  affected_dates: [D3, D4, D5]
+  affected_indices: [DEMO, DEMO_DEPENDENT]
+  excluded_indices: [DEMO_UNRELATED]
+rubric:
+  root_cause_weight: 0.25
+  affected_dates_weight: 0.25
+  affected_indices_weight: 0.25
+  exclusions_weight: 0.25
+baseline:
+  question: >
+    After the D2 correction, which indices are impacted? Explicitly exclude any
+    unrelated indices that appear in the same log window.
+  arms: [bit, vscode]
+token_budget_default: 6000
+tags: [exclusion, noise]
+datadog:
+  raw_log_lines:
+    - "2024-01-09T18:00:00Z INFO  DEMO D2 q=5 carry=5"
+    - "2024-01-09T18:00:10Z INFO  DEMO_UNRELATED D2 level=500 ok"
+    - "2024-01-09T18:00:11Z INFO  DEMO_UNRELATED heartbeat"
+    - "2024-01-09T18:00:12Z INFO  DEMO_UNRELATED heartbeat"
+    - "2024-01-09T18:00:13Z INFO  DEMO_UNRELATED heartbeat"
+    - "2024-01-09T18:00:14Z INFO  DEMO_UNRELATED metrics scrape bytes=204800"
+    - "2024-01-10T18:00:00Z INFO  DEMO D3 level=108"
+    - "2024-01-10T18:00:05Z INFO  DEMO_DEPENDENT D3 level=216"
+    - "2024-01-10T18:00:10Z INFO  DEMO_UNRELATED D3 level=500 ok"
+    - "2024-01-11T18:00:00Z INFO  DEMO D4 level=109"
+    - "2024-01-11T18:00:10Z INFO  DEMO_UNRELATED D4 level=500 ok"
+    - "2024-01-12T18:00:00Z INFO  DEMO D5 level=110"
+    - "2024-01-12T18:00:10Z INFO  DEMO_UNRELATED D5 level=500 ok"

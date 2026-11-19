@@ -13,6 +13,7 @@ It keeps a durable record of how a system is set up, what has changed, and what 
 - **Phase 3-4**: Databricks and Datadog adapters (fixture-first, live stubs)
 - **Phase 5**: Context assembly with token budgets and provenance
 - **Phase 6**: Documentation and release polish
+- **Phase 7 (in progress)**: Token-efficiency eval — case contracts + real token counters (see `docs/eval-protocol.md`)
 
 ### Verified Golden Values
 
@@ -103,7 +104,8 @@ Winston maintains two separate graphs joined through execution evidence:
 | `winston.repositories` | Registry, component maps, source reads |
 | `winston.lineage` | Dependency graph, impact, replay planning |
 | `winston.checks` | Deterministic business/chain/ops checks |
-| `winston.context` | Validity, assembly, manifests |
+| `winston.context` | Validity, assembly, manifests, token budgets |
+| `winston.evaluation` | Synthetic cases, eval contracts, token counters |
 | `winston.investigations` | Hypotheses, model interface |
 | `winston.cli` | Command-line interface |
 
@@ -151,6 +153,15 @@ Winston uses environment variables prefixed with `WINSTON_`:
 | `WINSTON_DATA_DIR` | `.winston` | Runtime data directory |
 | `WINSTON_PROFILE` | `synthetic` | Active profile |
 | `WINSTON_OFFLINE_MODE` | `true` | Block live network adapters |
+
+### Eval extras
+
+```bash
+pip install -e ".[eval]"   # tiktoken for accurate TokenCounter
+```
+
+Investigation cases live in `src/winston/evaluation/cases/`. Load with
+`winston.evaluation.load_case("carry_correction")`.
 
 ## License
 

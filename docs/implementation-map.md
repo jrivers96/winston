@@ -14,7 +14,7 @@
 | `winston.investigations` | Evidence-linked hypotheses; optional model interface | Phase 5 |
 | `winston.maintenance` | Cursors, due obligations, invalidation, recovery | Phase 2 |
 | `winston.cli` | Human + JSON interfaces | Phase 1+ |
-| `winston.evaluation` | Synthetic cases, recorded evidence, fault injection | Phase 2 |
+| `winston.evaluation` | Synthetic cases, recorded evidence, fault injection; Phase 0–1 case contracts + token counters | Phase 2 / 7 |
 
 ## Authority Split (non-negotiable)
 
@@ -30,6 +30,18 @@
 2. **Calculation DAG**: Consumed input/state revisions → executions → outputs (acyclic for concrete lineage)
 
 Joined only via execution evidence.
+
+## Phase 7 (token-efficiency eval) — in progress
+
+| Slice | Status |
+| ----- | ------ |
+| Phase 0 case contracts, fixtures, rubric | Done |
+| Phase 1 TokenCounter + prompt export | Done |
+| Phase 2 Winston assemble runner | Planned |
+| Phase 3 BIT / VS Code baseline ingest | Planned |
+| Phase 4 compare report + CI gate | Planned |
+
+See `docs/eval-protocol.md`.
 
 ## Deferred Items (not in v1)
 

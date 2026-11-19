@@ -1,0 +1,41 @@
+case_id: repeat_investigation
+title: Second-run reuse after carry_correction evidence stored
+description: >
+  Same ground truth as carry_correction. Used to measure repeat_delta when
+  Winston reuses stored evidence instead of re-prompting the full log window.
+  Baselines are expected to re-paste the same bundle.
+scenario: corrected
+index_id: DEMO
+business_date: D3
+question: >
+  Re-investigate the D2 q correction impact using any previously stored evidence.
+  Report root cause, impacted dates, and indices.
+ground_truth:
+  root_cause: d2_q_correction
+  affected_dates: [D3, D4, D5]
+  affected_indices: [DEMO, DEMO_DEPENDENT]
+  excluded_indices: [DEMO_UNRELATED]
+rubric:
+  root_cause_weight: 0.4
+  affected_dates_weight: 0.3
+  affected_indices_weight: 0.2
+  exclusions_weight: 0.1
+baseline:
+  question: >
+    Re-investigate the D2 q correction impact using any previously stored evidence.
+    Report root cause, impacted dates, and indices.
+  arms: [bit, vscode]
+  instructions: >
+    For the baseline arm, paste the full frozen log bundle again (no trimming)
+    even if a prior chat exists. Record tokens for this second paste separately.
+token_budget_default: 4000
+tags: [repeat, reuse]
+datadog:
+  raw_log_lines:
+    - "2024-01-09T18:00:02Z INFO  DEMO D2 input q=5 (was q=0) x=1"
+    - "2024-01-09T18:00:03Z INFO  DEMO D2 state level=102 carry=5"
+    - "2024-01-10T18:00:01Z INFO  DEMO D3 consumed parent carry=5 -> level=108"
+    - "2024-01-10T18:01:00Z INFO  DEMO_DEPENDENT D3 multiplier=2 source=DEMO/D3 -> level=216"
+    - "2024-01-11T18:00:01Z INFO  DEMO D4 level=109"
+    - "2024-01-12T18:00:01Z INFO  DEMO D5 level=110"
+    - "EVIDENCE_REF prior_case=carry_correction artifact=ev_carry_correction_v1"

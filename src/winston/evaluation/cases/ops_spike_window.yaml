@@ -1,0 +1,60 @@
+case_id: ops_spike_window
+title: Ops metrics spike without business-level change
+description: >
+  Datadog shows a CPU/latency spike during DEMO/D3, but calculator levels remain
+  on the original path (no q correction). Findings should not invent a business
+  root cause from ops noise alone.
+scenario: original
+index_id: DEMO
+business_date: D3
+question: >
+  DEMO/D3 shows elevated CPU and duration in Datadog. Did business levels change,
+  and what is the appropriate root cause classification?
+ground_truth:
+  root_cause: ops_noise_only
+  affected_dates: []
+  affected_indices: []
+  excluded_indices: [DEMO_DEPENDENT]
+  level_changes:
+    DEMO:
+      D3: 103
+  notes: Original golden path; spike is operational observation only.
+rubric:
+  root_cause_weight: 0.5
+  affected_dates_weight: 0.2
+  affected_indices_weight: 0.2
+  exclusions_weight: 0.1
+baseline:
+  question: >
+    DEMO/D3 shows elevated CPU and duration in Datadog. Did business levels change,
+    and what is the appropriate root cause classification?
+  arms: [bit, vscode]
+token_budget_default: 8000
+tags: [ops, noise]
+datadog:
+  window_start: "2024-01-10T17:00:00Z"
+  window_end: "2024-01-10T19:00:00Z"
+  metrics:
+    system.cpu.user:
+      - {ts: "2024-01-10T17:50:00Z", value: 22.0}
+      - {ts: "2024-01-10T18:00:00Z", value: 94.5}
+      - {ts: "2024-01-10T18:10:00Z", value: 88.1}
+      - {ts: "2024-01-10T18:20:00Z", value: 30.0}
+  execution_metrics:
+    DEMO_D3_original:
+      duration_ms: 9400
+      errors: 0
+      cpu_pct: 94.5
+  raw_log_lines:
+    - "2024-01-10T17:50:00Z INFO  DEMO D3 start"
+    - "2024-01-10T17:51:00Z WARN  host.cpu steal rising"
+    - "2024-01-10T17:52:00Z WARN  host.cpu steal rising"
+    - "2024-01-10T17:53:00Z WARN  gc.pause p99=240ms"
+    - "2024-01-10T17:54:00Z WARN  gc.pause p99=260ms"
+    - "2024-01-10T18:00:00Z INFO  DEMO D3 inputs x=1 q=0"
+    - "2024-01-10T18:00:05Z INFO  DEMO D3 state level=103 carry=0"
+    - "2024-01-10T18:00:06Z INFO  DEMO D3 succeeded duration_ms=9400"
+    - "2024-01-10T18:01:00Z INFO  datadog.metric system.cpu.user=94.5"
+    - "2024-01-10T18:02:00Z INFO  datadog.metric trace.slow_span=calc.step"
+    - "2024-01-10T18:05:00Z INFO  DEMO_DEPENDENT D3 level=206"
+    - "2024-01-10T18:10:00Z INFO  pager duty noise suppressed"

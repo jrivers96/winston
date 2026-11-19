@@ -41,6 +41,9 @@ databricks = [
 datadog = [
     "datadog-api-client>=2.0.0",
 ]
+eval = [
+    "tiktoken>=0.5.0",
+]
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
@@ -50,9 +53,10 @@ dev = [
     "ruff>=0.3.0",
     "types-PyYAML>=6.0.0",
     "types-python-dateutil>=2.8.0",
+    "winston[eval]",
 ]
 all = [
-    "winston[databricks,datadog,dev]",
+    "winston[databricks,datadog,eval,dev]",
 ]
 
 [project.scripts]
@@ -64,6 +68,9 @@ Repository = "https://github.com/jrivers96/winston"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/winston"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/winston/evaluation/cases" = "winston/evaluation/cases"
 
 [tool.ruff]
 target-version = "py38"
@@ -112,6 +119,7 @@ markers = [
     "phase4: Phase 4 acceptance tests",
     "phase5: Phase 5 acceptance tests",
     "phase6: Phase 6 acceptance tests",
+    "phase7: Phase 7 token-efficiency eval tests",
 ]
 
 [tool.coverage.run]
