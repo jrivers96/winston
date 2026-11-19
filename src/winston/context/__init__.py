@@ -1,3 +1,13 @@
 """Winston context - validity, assembly, manifests, explain."""
 
-# Phase 5 implementation
+from winston.context.assembly import (
+    ContextBuilder,
+    ContextManifest,
+    ContextItem,
+)
+
+__all__ = [
+    "ContextBuilder",
+    "ContextManifest",
+    "ContextItem",
+]
