@@ -67,7 +67,33 @@ WINSTON_OFFLINE_MODE=false WINSTON_LIVE_SMOKE=1 winston live-smoke --profile sup
 
 Without filled contracts/credentials, live-smoke exits informatively with a precise missing-configuration list.
 
+## Phase E — Trust / SLA → issues + maintain
+
+Offline Supercalc-shaped trust checks map gaps into Winston issue + obligation drafts. Unknown is never forced to pass.
+
+Checks (`src/winston/checks/trust.py`):
+
+| Check | Fail when |
+| --- | --- |
+| `freshness_sla` | Expected STRESS sessions missing |
+| `stale_window` | Observation older than SLA hours |
+| `coverage_gap` | Declared coverage below threshold |
+| `unrelated_exclusion` | `TRUST_UNRELATED_*` leaks into STRESS impact |
+
+```bash
+# Healthy offline pass (exit 0)
+winston maintain --once --profile supercalc_synthetic --no-persist
+
+# Simulate a missing session → draft issues (exit 2)
+winston maintain --once --inject-missing S5 --format json
+
+# Persist drafts to Postgres (dedupe by fingerprint)
+winston maintain --once --persist
+```
+
+Nightly also runs `maintain --once --no-persist` so a healthy synthetic trust loop is asserted without writing issues.
+
 ## Still ahead
 
 - **Provision `winston-ops` GCP** — Cloud SQL / scheduler for staging nightly (skeleton in `ops/winston-ops/`)
-- **Phase E** — schedule `maintain` and map Supercalc trust/SLA checks into Winston issues
+- **Fill `profiles/supercalc_live.yaml`** — real read-only mappings only (never invent production names)

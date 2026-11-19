@@ -6,6 +6,12 @@ from winston.checks.chain import (
     StateContinuityCheck,
     MissingExecutionCheck,
 )
+from winston.checks.trust import (
+    CoverageGapCheck,
+    FreshnessSLACheck,
+    StaleWindowCheck,
+    UnrelatedExclusionCheck,
+)
 from winston.checks.runner import CheckRunner
 
 __all__ = [
@@ -15,5 +21,9 @@ __all__ = [
     "ParentConsumedCheck",
     "StateContinuityCheck",
     "MissingExecutionCheck",
+    "FreshnessSLACheck",
+    "StaleWindowCheck",
+    "CoverageGapCheck",
+    "UnrelatedExclusionCheck",
     "CheckRunner",
 ]

@@ -33,6 +33,9 @@ jobs:
       - name: Replay recorded sample bundle
         run: winston replay --bundle supercalc-stress-s2-correction --offline --format json > recorded-report.json
 
+      - name: Maintain trust loop (no persist)
+        run: winston maintain --once --profile supercalc_synthetic --no-persist --format json > maintain-report.json
+
       - name: Summarize results
         run: |
           python - <<'PY'
@@ -42,19 +45,35 @@ jobs:
           reports = {
               "synthetic": json.loads(Path("synthetic-report.json").read_text()),
               "recorded": json.loads(Path("recorded-report.json").read_text()),
+              "maintain": json.loads(Path("maintain-report.json").read_text()),
           }
           summary = {
-              name: {
-                  "passed": report.get("passed"),
-                  "case": report.get("case"),
-                  "affected_indices": report.get("impact", {}).get("affected_indices"),
-                  "unrelated_excluded": report.get("impact", {}).get("unrelated_excluded"),
-              }
-              for name, report in reports.items()
+              "synthetic": {
+                  "passed": reports["synthetic"].get("passed"),
+                  "case": reports["synthetic"].get("case"),
+                  "affected_indices": reports["synthetic"].get("impact", {}).get("affected_indices"),
+                  "unrelated_excluded": reports["synthetic"].get("impact", {}).get("unrelated_excluded"),
+              },
+              "recorded": {
+                  "passed": reports["recorded"].get("passed"),
+                  "case": reports["recorded"].get("case"),
+                  "affected_indices": reports["recorded"].get("impact", {}).get("affected_indices"),
+                  "unrelated_excluded": reports["recorded"].get("impact", {}).get("unrelated_excluded"),
+              },
+              "maintain": {
+                  "passed": reports["maintain"].get("ok"),
+                  "failed": reports["maintain"].get("failed"),
+                  "unknown": reports["maintain"].get("unknown"),
+                  "drafts": len(reports["maintain"].get("drafts") or []),
+              },
           }
           Path("nightly-summary.json").write_text(json.dumps(summary, indent=2) + "\n")
           print(json.dumps(summary, indent=2))
-          failed = [name for name, item in summary.items() if not item["passed"]]
+          failed = [
+              name
+              for name, item in summary.items()
+              if not item.get("passed")
+          ]
           if failed:
               raise SystemExit(f"Nightly replay failures: {failed}")
           PY
@@ -67,4 +86,5 @@ jobs:
           path: |
             synthetic-report.json
             recorded-report.json
+            maintain-report.json
             nightly-summary.json

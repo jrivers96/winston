@@ -439,12 +439,67 @@ def repair_plan(
 
 @app.command()
 def maintain(
-    once: Annotated[bool, typer.Option("--once", help="Run maintenance once")] = True,
+    once: bool = typer.Option(True, "--once/--loop", help="Run maintenance once"),
+    profile: str = typer.Option("supercalc_synthetic", "--profile", "-p"),
+    persist: bool = typer.Option(
+        False,
+        "--persist/--no-persist",
+        help="Persist issues/obligations to PostgreSQL",
+    ),
+    inject_missing: Optional[str] = typer.Option(
+        None,
+        "--inject-missing",
+        help="Offline test aid: drop a STRESS session label (e.g. S5)",
+    ),
+    output_format: str = typer.Option("text", "--format", "-f"),
 ) -> None:
-    """Run maintenance tasks."""
-    console.print("Running maintenance tasks...")
-    # Phase 2 implementation
-    console.print("[yellow]Maintain command will be implemented in Phase 2[/yellow]")
+    """Run trust/SLA maintenance and optionally open Winston issues."""
+    from winston.maintenance import maintain_once
+
+    if not once:
+        console.print("[yellow]Loop mode not implemented; running once[/yellow]")
+
+    try:
+        report = maintain_once(
+            profile=profile,
+            persist=persist,
+            inject_missing_session=inject_missing,
+        )
+    except Exception as e:
+        console.print(f"[red]Maintain failed: {e}[/red]")
+        raise typer.Exit(1)
+
+    if output_format == "json":
+        _output_json(report)
+    else:
+        console.print(f"\n[bold]Maintain[/bold] profile={profile}")
+        console.print(f"  OK: {report.get('ok')}")
+        console.print(
+            f"  Checks: passed={report.get('passed')} "
+            f"failed={report.get('failed')} unknown={report.get('unknown')}"
+        )
+        drafts = report.get("drafts") or []
+        if drafts:
+            console.print(f"  Draft issues ({len(drafts)}):")
+            for draft in drafts:
+                console.print(
+                    f"    - [{draft.get('severity')}] {draft.get('title')} "
+                    f"({draft.get('issue_id')})"
+                )
+        else:
+            console.print("  Draft issues: none")
+        persisted = report.get("persisted") or {}
+        if persist:
+            console.print(
+                "  Persisted: "
+                f"created={persisted.get('issues_created', 0)} "
+                f"existing={persisted.get('issues_existing', 0)} "
+                f"obligations={persisted.get('obligations_created', 0)}"
+            )
+
+    if not report.get("ok", False):
+        # Non-zero when trust gaps exist so schedulers can alert
+        raise typer.Exit(2)
 
 
 @app.command(name="export")
