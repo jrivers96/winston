@@ -43,14 +43,30 @@ GitHub Actions:
 
 ## Provision sequence
 
-1. Create GCP project `winston-ops` (or your dedicated ops project ID); link billing
-2. `cd ops/winston-ops/terraform`
-3. `cp terraform.tfvars.example terraform.tfvars` and set `project_id`
-4. `./ops/winston-ops/scripts/provision_check.sh`
-5. When ready: set `enable_resources=true`, then `terraform plan` / `terraform apply` (explicit approval)
-6. Build/push the Cloud Run image — see `cloudrun/README.md`
-7. Optional durable maintain: set `DATABASE_URL` from Secret Manager and run `./scripts/staging_maintain.sh`
-8. Fill `profiles/supercalc_live.yaml` with **real** read-only mappings before any live smoke
+1. Refresh gcloud auth (required; tokens expire):
+   ```bash
+   source ops/winston-ops/scripts/gcloud_env.sh   # sets CLOUDSDK_PYTHON (needs 3.9+)
+   gcloud auth login
+   gcloud auth application-default login
+   ```
+2. Create/link dedicated project (not Supercalc production):
+   ```bash
+   gcloud projects create winston-ops --name="Winston Ops"
+   gcloud config set project winston-ops
+   # link billing in console if create succeeds
+   ```
+3. `cd ops/winston-ops/terraform`
+4. `cp terraform.tfvars.example terraform.tfvars` and set `project_id` (keep `enable_resources=false` until ready)
+5. `./ops/winston-ops/scripts/provision_check.sh`
+6. When ready: set `enable_resources=true`, then `terraform plan` / `terraform apply` (explicit approval)
+7. Build/push the Cloud Run image — see `cloudrun/README.md`
+8. Optional durable maintain: set `WINSTON_DATABASE_URL` from Secret Manager and run `./scripts/staging_maintain.sh`
+9. Fill `profiles/supercalc_live.yaml` with **real** read-only mappings before any live smoke:
+   ```bash
+   ./ops/winston-ops/scripts/bootstrap_live_profile.sh
+   # edit profiles/supercalc_live.yaml — do not invent production names
+   winston doctor --profile supercalc_live -f json
+   ```
 
 ## Terraform
 

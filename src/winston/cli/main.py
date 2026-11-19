@@ -54,19 +54,16 @@ def version() -> None:
 
 @app.command()
 def doctor(
-    profile: Annotated[
-        str, typer.Option("--profile", "-p", help="Profile to check")
-    ] = "synthetic",
-    output_format: Annotated[
-        str, typer.Option("--format", "-f", help="Output format (text/json)")
-    ] = "text",
+    profile: str = typer.Option("synthetic", "--profile", "-p", help="Profile to check"),
+    output_format: str = typer.Option(
+        "text", "--format", "-f", help="Output format (text/json)"
+    ),
 ) -> None:
     """Check Winston configuration and connectivity."""
-    from winston.storage.database import check_connection
     from winston.cli.doctor import run_doctor
-    
+
     results = run_doctor(profile)
-    
+
     if output_format == "json":
         _output_json(results)
     else:

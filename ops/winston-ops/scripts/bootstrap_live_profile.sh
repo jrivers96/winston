@@ -20,7 +20,7 @@ fi
 
 if command -v winston >/dev/null 2>&1; then
   echo "==> winston doctor --profile supercalc_live"
-  winston doctor --profile supercalc_live --format json || true
+  winston doctor --profile supercalc_live -f json || true
 else
   echo "NOTE: winston CLI not on PATH — skip doctor"
 fi
