@@ -126,8 +126,11 @@ def backward_traverse(
             if edge.source_execution_id not in visited:
                 queue.append(edge.source_execution_id)
     
-    if queue and result.complete:
+    if queue:
         result.frontier.extend(queue)
+        if result.complete and not budget.can_continue():
+            result.complete = False
+            result.truncation_reason = result.truncation_reason or "node_budget_exceeded"
     
     return result
 
@@ -195,8 +198,11 @@ def forward_traverse(
             if edge.target_execution_id not in visited:
                 queue.append(edge.target_execution_id)
     
-    if queue and result.complete:
+    if queue:
         result.frontier.extend(queue)
+        if result.complete and not budget.can_continue():
+            result.complete = False
+            result.truncation_reason = result.truncation_reason or "node_budget_exceeded"
     
     return result
 

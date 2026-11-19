@@ -130,16 +130,17 @@ class TestTraversal:
         assert result.complete
     
     def test_forward_traverse_from_d1(self):
-        """Test forward traversal from D1 reaches D5."""
+        """Test forward traversal from D1 reaches D5 and the dependent index."""
         graph = create_demo_graph("original")
         d1_id = create_execution_id("DEMO", "D1", "original")
         
         result = forward_traverse(graph, d1_id)
         
-        # Should visit D1, D2, D3, D4, D5
-        assert len(result.visited) == 5
+        # D1-D5 plus DEMO_DEPENDENT at D3
+        assert len(result.visited) == 6
         assert d1_id in result.visited
         assert create_execution_id("DEMO", "D5", "original") in result.visited
+        assert create_execution_id("DEMO_DEPENDENT", "D3", "original") in result.visited
     
     def test_traverse_with_budget(self):
         """Test that budget limits traversal."""
@@ -152,6 +153,7 @@ class TestTraversal:
         assert len(result.visited) <= 3
         assert not result.complete
         assert result.truncation_reason == "node_budget_exceeded"
+        assert result.frontier
     
     def test_cross_index_dependency(self):
         """Test that DEMO_DEPENDENT is reachable from DEMO D3."""

@@ -1,0 +1,149 @@
+# Supercalc-shaped synthetic profile (fixture-only)
+# Artificial prediction-market analytics products — no production table/metric names.
+
+profile_id: supercalc_synthetic
+description: "Offline Supercalc-shaped products for continual Winston testing"
+version: "1.0.0"
+capability_label: fixture-verified
+
+# Product surfaces (artificial):
+# - STRESS: systemic breadth chain across sessions (stress-like)
+# - HEDGE_ARM: hedge-window arm depending on STRESS at S3 (2x level)
+# - TRUST_UNRELATED: independent trust/status constant (must stay out of STRESS impact)
+
+indices:
+  - id: STRESS
+    environment: synthetic
+    owner: winston-test
+    calendar_ref: supercalc-synthetic-calendar
+    timezone: UTC
+    description: "Artificial stress-breadth chain (not production stress index)"
+    formula:
+      type: synthetic_additive
+      initial_state:
+        level: 100
+        carry: 0
+    stages:
+      - id: calculate
+        order: 1
+    predecessor_rules:
+      type: calendar_previous
+    checks:
+      - continuity
+      - parent_consumed
+      - freshness
+      - missing_execution
+
+  - id: HEDGE_ARM
+    environment: synthetic
+    owner: winston-test
+    calendar_ref: supercalc-synthetic-calendar
+    timezone: UTC
+    description: "Artificial hedge-window arm depending on STRESS S3"
+    formula:
+      type: synthetic_multiplier
+      source_index: STRESS
+      source_date: S3
+      multiplier: 2
+    dependencies:
+      - index: STRESS
+        date_ref: S3
+        field: level
+
+  - id: TRUST_UNRELATED
+    environment: synthetic
+    owner: winston-test
+    calendar_ref: supercalc-synthetic-calendar
+    timezone: UTC
+    description: "Independent trust/status series — must not inherit STRESS impact"
+    formula:
+      type: synthetic_constant
+      value: 42
+
+calendars:
+  - id: supercalc-synthetic-calendar
+    timezone: UTC
+    description: "Five synthetic sessions with a weekend gap after S5"
+    dates:
+      - label: S1
+        business_date: "2024-06-03"
+        is_calculation_day: true
+        previous_calculation_date: null
+      - label: S2
+        business_date: "2024-06-04"
+        is_calculation_day: true
+        previous_calculation_date: "2024-06-03"
+      - label: S3
+        business_date: "2024-06-05"
+        is_calculation_day: true
+        previous_calculation_date: "2024-06-04"
+      - label: S4
+        business_date: "2024-06-06"
+        is_calculation_day: true
+        previous_calculation_date: "2024-06-05"
+      - label: S5
+        business_date: "2024-06-07"
+        is_calculation_day: true
+        previous_calculation_date: "2024-06-06"
+      - label: S5_SAT
+        business_date: "2024-06-08"
+        is_calculation_day: false
+      - label: S5_SUN
+        business_date: "2024-06-09"
+        is_calculation_day: false
+
+# Same arithmetic as DEMO golden values, relabeled for Supercalc-shaped products
+golden_values:
+  original:
+    STRESS:
+      S1: { level: 101, carry: 0, x: 1, q: 0 }
+      S2: { level: 102, carry: 0, x: 1, q: 0 }
+      S3: { level: 103, carry: 0, x: 1, q: 0 }
+      S4: { level: 104, carry: 0, x: 1, q: 0 }
+      S5: { level: 105, carry: 0, x: 1, q: 0 }
+    HEDGE_ARM:
+      S3: { level: 206 }
+    TRUST_UNRELATED:
+      S1: { level: 42 }
+      S2: { level: 42 }
+      S3: { level: 42 }
+      S4: { level: 42 }
+      S5: { level: 42 }
+
+  # After S2 q correction 0 -> 5 (displayed S2 level unchanged; carry changes)
+  corrected:
+    STRESS:
+      S1: { level: 101, carry: 0, x: 1, q: 0 }
+      S2: { level: 102, carry: 5, x: 1, q: 5 }
+      S3: { level: 108, carry: 0, x: 1, q: 0 }
+      S4: { level: 109, carry: 0, x: 1, q: 0 }
+      S5: { level: 110, carry: 0, x: 1, q: 0 }
+    HEDGE_ARM:
+      S3: { level: 216 }
+
+trust_checks:
+  - id: freshness_sla
+    description: "Missing/stale STRESS session must not be treated as healthy"
+    expected_sessions: [S1, S2, S3, S4, S5]
+  - id: unrelated_exclusion
+    description: "TRUST_UNRELATED must not appear in STRESS impact closure"
+
+corrections:
+  - id: S2_Q_CORRECTION
+    index: STRESS
+    date: S2
+    field: q
+    original_value: 0
+    corrected_value: 5
+    arrival_time: "2024-06-08T10:00:00Z"
+    note: "Arrives after S5 publication; as_executed must preserve original history"
+
+cases:
+  - id: supercalc-late-correction
+    description: "S2 q correction impacts S3-S5 and HEDGE_ARM; TRUST_UNRELATED excluded"
+    profile: supercalc_synthetic
+    change_id: S2_Q_CORRECTION
+    origin_date: S2
+    affected_dates: [S3, S4, S5]
+    affected_indices: [STRESS, HEDGE_ARM]
+    excluded_indices: [TRUST_UNRELATED]

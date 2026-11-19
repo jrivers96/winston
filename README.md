@@ -21,20 +21,49 @@ The synthetic calculator correctly produces:
 - After D2 q=5 correction: 101, 102, 108, 109, 110
 - Dependent index (2× D3): 206 → 216
 
+Supercalc-shaped offline case (`supercalc-late-correction`):
+- `STRESS` S1–S5 mirrors the same arithmetic
+- `HEDGE_ARM` tracks 2× STRESS S3 (206 → 216)
+- `TRUST_UNRELATED` stays out of STRESS impact
+
+```bash
+winston replay --case supercalc-late-correction --offline
+```
+
+See [docs/continual-testing.md](docs/continual-testing.md) for the CI + fixture layers.
+
 ## Quick Start
 
-### Prerequisites
+### VS Code Dev Container (recommended)
+
+One-click local setup with Winston + PostgreSQL:
+
+1. Install the [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) extension
+2. Open this repo in VS Code / Cursor
+3. Run **Dev Containers: Reopen in Container**
+
+That builds the Winston image, starts Postgres, installs the package, and runs `winston init`.
+
+Then in the container terminal:
+
+```bash
+winston doctor --profile synthetic
+```
+
+### Local setup (without Dev Container)
+
+#### Prerequisites
 
 - Python 3.8+
 - PostgreSQL 13+
 - Docker & Docker Compose (optional, for local PostgreSQL)
 
-### Setup
+#### Setup
 
 1. **Start PostgreSQL** (using Docker Compose):
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
 2. **Install Winston**:

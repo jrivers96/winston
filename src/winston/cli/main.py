@@ -173,39 +173,129 @@ def sync(
 
 @app.command()
 def diagnose(
-    index: Annotated[str, typer.Option("--index", "-i", help="Index to diagnose")],
-    date: Annotated[str, typer.Option("--date", "-d", help="Business date")],
-    scenario: Annotated[str, typer.Option("--scenario", "-s")] = "as_executed",
-    output_format: Annotated[str, typer.Option("--format", "-f")] = "text",
+    index: str = typer.Option(..., "--index", "-i", help="Index to diagnose"),
+    date: str = typer.Option(..., "--date", "-d", help="Business date"),
+    scenario: str = typer.Option("as_executed", "--scenario", "-s"),
+    profile: str = typer.Option("synthetic", "--profile", "-p"),
+    output_format: str = typer.Option("text", "--format", "-f"),
 ) -> None:
     """Diagnose calculation issues for an index and date."""
-    console.print(f"Diagnosing {index} on {date} (scenario: {scenario})")
-    # Phase 2 implementation
-    console.print("[yellow]Diagnose command will be implemented in Phase 2[/yellow]")
+    from winston.evaluation.diagnose import diagnose_index_date
+
+    try:
+        report = diagnose_index_date(
+            index_id=index,
+            business_date=date,
+            scenario=scenario,
+            profile=profile,
+        )
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+    if output_format == "json":
+        _output_json(report)
+    else:
+        console.print(f"\n[bold]Diagnosis[/bold] {index}/{date} ({scenario})")
+        console.print(f"  Profile: {profile}")
+        console.print(f"  Execution: {report.get('execution_id', 'missing')}")
+        console.print(f"  Status: {report.get('status')}")
+        if report.get("state"):
+            console.print(f"  State: {report['state']}")
+        if report.get("findings"):
+            console.print("  Findings:")
+            for finding in report["findings"]:
+                console.print(f"    - {finding}")
 
 
 @app.command()
 def impact(
-    change: Annotated[str, typer.Option("--change", "-c", help="Change ID")],
-    through: Annotated[str, typer.Option("--through", "-t", help="End date")],
-    output_format: Annotated[str, typer.Option("--format", "-f")] = "text",
+    change: str = typer.Option(..., "--change", "-c", help="Change ID"),
+    through: str = typer.Option(..., "--through", "-t", help="End date"),
+    profile: str = typer.Option("supercalc_synthetic", "--profile", "-p"),
+    output_format: str = typer.Option("text", "--format", "-f"),
 ) -> None:
     """Assess impact of a change."""
-    console.print(f"Assessing impact of change {change} through {through}")
-    # Phase 2 implementation
-    console.print("[yellow]Impact command will be implemented in Phase 2[/yellow]")
+    from winston.evaluation.diagnose import assess_change_impact
+
+    try:
+        report = assess_change_impact(
+            change_id=change,
+            through_date=through,
+            profile=profile,
+        )
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+    if output_format == "json":
+        _output_json(report)
+    else:
+        console.print(f"\n[bold]Impact[/bold] change={change} through={through}")
+        console.print(f"  Affected indices: {', '.join(report.get('affected_indices', []))}")
+        console.print(f"  Affected dates: {', '.join(report.get('affected_dates', []))}")
+        console.print(
+            f"  Unrelated excluded: {report.get('unrelated_excluded', False)}"
+        )
 
 
 @app.command()
 def replay(
-    case: Annotated[str, typer.Option("--case", "-c", help="Test case name")],
-    offline: Annotated[bool, typer.Option("--offline", help="Use offline mode")] = True,
+    case: str = typer.Option(..., "--case", "-c", help="Test case name"),
+    offline: bool = typer.Option(True, "--offline/--live", help="Offline fixture mode"),
+    output_format: str = typer.Option("text", "--format", "-f", help="Output format"),
 ) -> None:
-    """Replay a calculation scenario."""
-    mode = "offline" if offline else "live"
-    console.print(f"Replaying case {case} in {mode} mode")
-    # Phase 2 implementation
-    console.print("[yellow]Replay command will be implemented in Phase 2[/yellow]")
+    """Replay a named offline evaluation case."""
+    from winston.evaluation.cases import list_cases, run_case
+
+    if case == "list":
+        cases = list_cases()
+        if output_format == "json":
+            _output_json({"cases": cases})
+        else:
+            console.print("\n[bold]Known offline cases[/bold]")
+            for case_id, description in cases.items():
+                console.print(f"  {case_id}: {description}")
+        return
+
+    try:
+        report = run_case(case, offline=offline)
+    except ValueError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+    except AssertionError as e:
+        console.print(f"[red]Case assertions failed: {e}[/red]")
+        raise typer.Exit(1)
+
+    if output_format == "json":
+        _output_json(report)
+    else:
+        console.print(f"\n[bold]Replay[/bold] {case} ({'offline' if offline else 'live'})")
+        console.print(f"  Passed: {report.get('passed')}")
+        console.print(f"  Capability: {report.get('capability_label')}")
+        impact_info = report.get("impact", {})
+        if impact_info:
+            console.print(
+                f"  Affected indices: {', '.join(impact_info.get('affected_indices', []))}"
+            )
+            if "affected_dates" in impact_info:
+                console.print(
+                    f"  Affected dates: {', '.join(impact_info.get('affected_dates', []))}"
+                )
+            if "unrelated_excluded" in impact_info:
+                console.print(
+                    f"  Unrelated excluded: {impact_info.get('unrelated_excluded')}"
+                )
+        assertions = report.get("assertions", {})
+        if assertions:
+            console.print("  Assertions:")
+            for name, ok in assertions.items():
+                mark = "✓" if ok else "✗"
+                color = "green" if ok else "red"
+                console.print(f"    [{color}]{mark}[/{color}] {name}")
+
+    if not report.get("passed", False):
+        raise typer.Exit(1)
 
 
 @app.command(name="repair-plan")

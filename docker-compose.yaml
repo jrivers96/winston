@@ -18,6 +18,28 @@ services:
       start_period: 10s
     restart: unless-stopped
 
+  winston:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: winston-dev
+    working_dir: /workspace
+    volumes:
+      - .:/workspace:cached
+    environment:
+      WINSTON_DATABASE_URL: postgresql://winston:winston_dev@postgres:5432/winston
+      WINSTON_TEST_DATABASE_URL: postgresql://winston:winston_dev@postgres:5432/winston_test
+      WINSTON_DATA_DIR: /workspace/.winston
+      WINSTON_OFFLINE_MODE: "true"
+      WINSTON_PROFILE: synthetic
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: sleep infinity
+    # Dev Containers attach as vscode; keep interactive shells usable
+    stdin_open: true
+    tty: true
+
 volumes:
   winston_pgdata:
     name: winston_pgdata
