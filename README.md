@@ -6,12 +6,20 @@ It keeps a durable record of how a system is set up, what has changed, and what 
 
 ## Status
 
-**Phase 1 (Foundation)** - Core infrastructure complete:
-- PostgreSQL storage with Alembic migrations
-- Artifact store with atomic writes and digest verification
-- Domain models for issues, obligations, executions, and evidence
-- Synthetic source adapter for offline testing
-- CLI skeleton with doctor command
+**All Phases Complete** - Winston is a working operations agent:
+
+- **Phase 0-1**: Foundation with PostgreSQL, Alembic, artifact store, domain models
+- **Phase 2**: Chain analysis, lineage graph, impact analysis, replay planning
+- **Phase 3-4**: Databricks and Datadog adapters (fixture-first, live stubs)
+- **Phase 5**: Context assembly with token budgets and provenance
+- **Phase 6**: Documentation and release polish
+
+### Verified Golden Values
+
+The synthetic calculator correctly produces:
+- Original D1-D5: 101, 102, 103, 104, 105
+- After D2 q=5 correction: 101, 102, 108, 109, 110
+- Dependent index (2× D3): 206 → 216
 
 ## Quick Start
 
