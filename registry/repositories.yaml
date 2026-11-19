@@ -1,0 +1,149 @@
+# Repository Registry
+# Versioned catalog of repositories Winston can inspect
+
+registry_version: "1.0.0"
+last_updated: "2024-01-01T00:00:00Z"
+
+repositories:
+  # Synthetic fixture repositories for offline testing
+  
+  - id: fixture-calculator
+    description: "Synthetic calculator implementation for DEMO index"
+    role: calculation
+    owner: winston-test
+    
+    location:
+      type: local_fixture
+      path: ".winston/fixtures/repos/calculator"
+      
+    languages:
+      - python
+      
+    entrypoints:
+      - path: "src/calculator.py"
+        type: main
+        
+    components:
+      - component_id: demo-calculator
+        paths:
+          - "src/calculator.py"
+          - "src/formulas/"
+          
+    access:
+      allowed_paths:
+        - "src/**"
+        - "config/**"
+      excluded_paths:
+        - "**/__pycache__/**"
+        - "**/.git/**"
+      scope: read_only
+      
+    exploration:
+      default_branch: main
+      
+  - id: fixture-shared-lib
+    description: "Shared library used by calculator"
+    role: shared_library
+    owner: winston-test
+    
+    location:
+      type: local_fixture
+      path: ".winston/fixtures/repos/shared-lib"
+      
+    languages:
+      - python
+      
+    components:
+      - component_id: core-utils
+        paths:
+          - "src/utils.py"
+          - "src/types.py"
+          
+    access:
+      allowed_paths:
+        - "src/**"
+      excluded_paths:
+        - "**/__pycache__/**"
+      scope: read_only
+      
+    exploration:
+      default_branch: main
+      
+  - id: fixture-config
+    description: "Configuration and orchestration definitions"
+    role: configuration
+    owner: winston-test
+    
+    location:
+      type: local_fixture
+      path: ".winston/fixtures/repos/config"
+      
+    languages:
+      - yaml
+      
+    components:
+      - component_id: demo-config
+        paths:
+          - "indices/demo.yaml"
+      - component_id: orchestration
+        paths:
+          - "workflows/"
+          
+    access:
+      allowed_paths:
+        - "**/*.yaml"
+        - "**/*.yml"
+      scope: read_only
+      
+    exploration:
+      default_branch: main
+
+# Component to repository mappings (many-to-many)
+component_mappings:
+  - component_id: demo-calculator
+    repositories:
+      - fixture-calculator
+    role: calculation
+    
+  - component_id: core-utils
+    repositories:
+      - fixture-shared-lib
+    role: shared_library
+    consumers:
+      - demo-calculator
+      
+  - component_id: demo-config
+    repositories:
+      - fixture-config
+    role: configuration
+    consumers:
+      - demo-calculator
+
+# Live repository templates (empty - fill for production use)
+live_templates:
+  - id: ""
+    description: "Template for production calculator repository"
+    role: calculation
+    owner: ""
+    
+    location:
+      type: git_remote
+      origin: ""
+      credential_provider: ""
+      
+    languages: []
+    entrypoints: []
+    components: []
+    
+    access:
+      allowed_paths: []
+      excluded_paths:
+        - "**/__pycache__/**"
+        - "**/node_modules/**"
+        - "**/.git/**"
+      scope: read_only
+      retrieval_budget_mb: 10
+      cache_budget_mb: 100
+      
+    exploration:
+      default_branch: main

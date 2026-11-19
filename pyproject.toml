@@ -1,0 +1,126 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "winston"
+version = "0.1.0"
+description = "An operations agent that manages system context over time"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.8"
+authors = [
+    { name = "Jonathan Rivers" }
+]
+keywords = ["operations", "agent", "index", "lineage", "investigation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+]
+
+dependencies = [
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "sqlalchemy>=2.0.0",
+    "alembic>=1.13.0",
+    "psycopg[binary]>=3.1.0",
+    "pyyaml>=6.0.0",
+    "python-dateutil>=2.8.0",
+    "typing-extensions>=4.0.0;python_version<'3.9'",
+]
+
+[project.optional-dependencies]
+databricks = [
+    "databricks-sql-connector>=3.0.0",
+]
+datadog = [
+    "datadog-api-client>=2.0.0",
+]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.0.0",
+    "pytest-postgresql>=6.0.0",
+    "mypy>=1.8.0",
+    "ruff>=0.3.0",
+    "types-PyYAML>=6.0.0",
+    "types-python-dateutil>=2.8.0",
+]
+all = [
+    "winston[databricks,datadog,dev]",
+]
+
+[project.scripts]
+winston = "winston.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/jrivers96/winston"
+Repository = "https://github.com/jrivers96/winston"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/winston"]
+
+[tool.ruff]
+target-version = "py38"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort
+    "B",    # flake8-bugbear
+    "C4",   # flake8-comprehensions
+    "UP",   # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["winston"]
+
+[tool.mypy]
+python_version = "3.8"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+plugins = ["pydantic.mypy"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
+markers = [
+    "unit: Unit tests (no external dependencies)",
+    "integration: Integration tests (requires PostgreSQL)",
+    "phase1: Phase 1 acceptance tests",
+    "phase2: Phase 2 acceptance tests",
+    "phase3: Phase 3 acceptance tests",
+    "phase4: Phase 4 acceptance tests",
+    "phase5: Phase 5 acceptance tests",
+    "phase6: Phase 6 acceptance tests",
+]
+
+[tool.coverage.run]
+source = ["src/winston"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]

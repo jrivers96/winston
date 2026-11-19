@@ -1,0 +1,183 @@
+# Synthetic DEMO Profile
+# Used for offline demonstration and testing without live credentials
+
+profile_id: synthetic
+description: "Synthetic demonstration profile for offline testing"
+version: "1.0.0"
+
+# Index definitions for the synthetic demo
+indices:
+  - id: DEMO
+    environment: synthetic
+    owner: winston-test
+    calendar_ref: synthetic-calendar
+    timezone: UTC
+    description: "Primary synthetic index for demonstration"
+    
+    # Synthetic calculator formula (from spec):
+    # L[d] = L[parent] + x[d] + carry[parent]
+    # carry[d] = q[d]
+    # state[d] = (L[d], carry[d])
+    # Initial state: (100, 0)
+    formula:
+      type: synthetic_additive
+      initial_state:
+        level: 100
+        carry: 0
+        
+    stages:
+      - id: calculate
+        order: 1
+        
+    predecessor_rules:
+      type: calendar_previous
+      
+    checks:
+      - continuity
+      - parent_consumed
+      - output_invariants
+
+  - id: DEMO_DEPENDENT
+    environment: synthetic
+    owner: winston-test
+    calendar_ref: synthetic-calendar
+    timezone: UTC
+    description: "Dependent index (2x DEMO D3 level)"
+    
+    formula:
+      type: synthetic_multiplier
+      source_index: DEMO
+      source_date: D3
+      multiplier: 2
+      
+    dependencies:
+      - index: DEMO
+        date_ref: D3
+        field: level
+
+  - id: DEMO_UNRELATED
+    environment: synthetic
+    owner: winston-test
+    calendar_ref: synthetic-calendar
+    timezone: UTC
+    description: "Unrelated index for exclusion testing"
+    
+    formula:
+      type: synthetic_constant
+      value: 500
+
+# Calendar configuration
+calendars:
+  - id: synthetic-calendar
+    timezone: UTC
+    description: "Synthetic 5-day calendar with weekend and closure"
+    
+    # D1-D5 span includes weekend and synthetic closed day
+    dates:
+      - label: D1
+        business_date: "2024-01-08"  # Monday
+        is_calculation_day: true
+        previous_calculation_date: null
+        
+      - label: D2
+        business_date: "2024-01-09"  # Tuesday
+        is_calculation_day: true
+        previous_calculation_date: "2024-01-08"
+        
+      - label: D3
+        business_date: "2024-01-10"  # Wednesday
+        is_calculation_day: true
+        previous_calculation_date: "2024-01-09"
+        
+      - label: D4
+        business_date: "2024-01-11"  # Thursday
+        is_calculation_day: true
+        previous_calculation_date: "2024-01-10"
+        
+      - label: D5
+        business_date: "2024-01-12"  # Friday
+        is_calculation_day: true
+        previous_calculation_date: "2024-01-11"
+        
+      # Weekend (not calculation days)
+      - label: D5_SAT
+        business_date: "2024-01-13"
+        is_calculation_day: false
+        
+      - label: D5_SUN
+        business_date: "2024-01-14"
+        is_calculation_day: false
+
+# Golden test values (original, before D2 correction)
+golden_values:
+  original:
+    DEMO:
+      D1: { level: 101, carry: 0, x: 1, q: 0 }
+      D2: { level: 102, carry: 0, x: 1, q: 0 }
+      D3: { level: 103, carry: 0, x: 1, q: 0 }
+      D4: { level: 104, carry: 0, x: 1, q: 0 }
+      D5: { level: 105, carry: 0, x: 1, q: 0 }
+    DEMO_DEPENDENT:
+      D3: { level: 206 }  # 2 * 103
+    DEMO_UNRELATED:
+      D1: { level: 500 }
+      D2: { level: 500 }
+      D3: { level: 500 }
+      D4: { level: 500 }
+      D5: { level: 500 }
+
+  # After D2 q correction: 0 -> 5
+  corrected:
+    DEMO:
+      D1: { level: 101, carry: 0, x: 1, q: 0 }
+      D2: { level: 102, carry: 5, x: 1, q: 5 }  # Level unchanged, carry changes
+      D3: { level: 108, carry: 0, x: 1, q: 0 }  # 102 + 1 + 5 = 108
+      D4: { level: 109, carry: 0, x: 1, q: 0 }  # 108 + 1 + 0 = 109
+      D5: { level: 110, carry: 0, x: 1, q: 0 }  # 109 + 1 + 0 = 110
+    DEMO_DEPENDENT:
+      D3: { level: 216 }  # 2 * 108
+
+# State reset fixture (D4 unconditionally resets)
+state_reset_fixture:
+  description: "D4 resets state to (200, 0); D5 still depends on D2.q via lookback"
+  DEMO:
+    D1: { level: 101, carry: 0 }
+    D2: { level: 102, carry: 0 }
+    D3: { level: 103, carry: 0 }
+    D4: { level: 200, carry: 0, reset: true }
+    D5: { level: 201, carry: 0 }  # L[D4] + 1 + q[D2] = 200 + 1 + 0 = 201
+  corrected:
+    D1: { level: 101, carry: 0 }
+    D2: { level: 102, carry: 5 }
+    D3: { level: 108, carry: 0 }
+    D4: { level: 200, carry: 0, reset: true }  # Reset unchanged
+    D5: { level: 206, carry: 0 }  # 200 + 1 + 5 = 206 (D2.q = 5)
+
+# Datadog simulation for synthetic profile
+telemetry:
+  D3_cpu_spike:
+    execution: DEMO/D3
+    metric: cpu_percent
+    value: 95
+    timestamp: "2024-01-10T14:30:00Z"
+    note: "Correlation only - does not prove arithmetic cause"
+
+# Synthetic failed retry
+failed_runs:
+  - execution_id: DEMO_D3_retry_1
+    index: DEMO
+    date: D3
+    status: failed
+    error: "Simulated transient failure"
+    note: "Must not replace successful selected output"
+
+# Correction metadata
+corrections:
+  - id: D2_Q_CORRECTION
+    index: DEMO
+    date: D2
+    field: q
+    original_value: 0
+    corrected_value: 5
+    arrival_time: "2024-01-13T10:00:00Z"
+    note: "Arrived after D5 original publication"
