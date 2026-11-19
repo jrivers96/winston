@@ -1,0 +1,16 @@
+# Copy to terraform.tfvars (gitignored) and fill real winston-ops project values.
+# Never point this at Supercalc production.
+
+project_id  = "winston-ops"   # replace with the real dedicated ops project ID
+region      = "us-central1"
+environment = "staging"
+
+# Keep false until the project exists, billing is linked, and apply is approved.
+enable_resources = false
+
+# Optional overrides:
+# sql_tier            = "db-f1-micro"
+# sql_disk_gb         = 10
+# reports_bucket_name = ""   # defaults to ${project_id}-winston-nightly-reports
+# nightly_schedule    = "0 8 * * *"
+# create_live_smoke_secret_shells = true

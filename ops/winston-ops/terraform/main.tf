@@ -1,24 +1,23 @@
-# Skeleton only — do not apply until project IDs and APIs are confirmed.
+# winston-ops Terraform root
+# Skeleton only — default enable_resources=false creates nothing billable.
 # Intended project: winston-ops (separate from Supercalc production).
 
 terraform {
   required_version = ">= 1.5.0"
+
   required_providers {
     google = {
       source  = "hashicorp/google"
       version = ">= 5.0"
     }
+    random = {
+      source  = "hashicorp/random"
+      version = ">= 3.5"
+    }
   }
-}
 
-variable "project_id" {
-  type        = string
-  description = "GCP project ID for Winston ops (e.g. winston-ops)"
-}
-
-variable "region" {
-  type    = string
-  default = "us-central1"
+  # Backend intentionally unset. Add a remote backend in the winston-ops
+  # project after the state bucket exists (do not store state in Supercalc).
 }
 
 provider "google" {
@@ -26,27 +25,17 @@ provider "google" {
   region  = var.region
 }
 
-# Example placeholders (commented until ready):
-#
-# resource "google_sql_database_instance" "winston" {
-#   name             = "winston-staging"
-#   database_version = "POSTGRES_16"
-#   region           = var.region
-#   settings {
-#     tier = "db-f1-micro"
-#   }
-# }
-#
-# resource "google_service_account" "nightly" {
-#   account_id   = "winston-nightly"
-#   display_name = "Winston nightly replay"
-# }
-#
-# resource "google_storage_bucket" "reports" {
-#   name     = "${var.project_id}-winston-nightly-reports"
-#   location = var.region
-# }
-
-output "project_id" {
-  value = var.project_id
+locals {
+  name_prefix = "winston-${var.environment}"
+  reports_bucket = (
+    var.reports_bucket_name != ""
+    ? var.reports_bucket_name
+    : "${var.project_id}-winston-nightly-reports"
+  )
+  labels = {
+    app         = "winston"
+    environment = var.environment
+    managed_by  = "terraform"
+    purpose     = "ops-continual-testing"
+  }
 }

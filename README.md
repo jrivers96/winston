@@ -36,6 +36,8 @@ winston live-smoke --profile supercalc_live   # reports missing live config unle
 
 See [docs/continual-testing.md](docs/continual-testing.md) for CI, recorded fixtures, nightly, live-smoke, and trust/maintain layers.
 
+GCP staging skeleton (no apply by default): [ops/winston-ops/README.md](ops/winston-ops/README.md) — run `./ops/winston-ops/scripts/provision_check.sh` before any `terraform apply`.
+
 ## Quick Start
 
 ### VS Code Dev Container (recommended)

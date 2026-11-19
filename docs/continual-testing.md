@@ -47,7 +47,17 @@ winston replay --bundle supercalc-stress-s2-correction --offline
 
 ## GCP (`winston-ops`)
 
-Staging/nightly Cloud resources belong in a dedicated GCP project. See `ops/winston-ops/README.md` for the skeleton. Local Dev Container + GitHub Actions remain the default until that project is provisioned.
+Staging/nightly Cloud resources belong in a dedicated GCP project. See `ops/winston-ops/README.md`.
+
+Terraform defaults to `enable_resources=false` (no billable creates). Local Dev Container + GitHub Actions remain the default until that project exists and apply is explicitly approved.
+
+```bash
+./ops/winston-ops/scripts/provision_check.sh          # validate skeleton, no apply
+./ops/winston-ops/scripts/bootstrap_live_profile.sh   # copy live template (gitignored)
+./ops/winston-ops/scripts/nightly_replay.sh           # offline nightly stand-in
+# After Cloud SQL exists:
+# WINSTON_DATABASE_URL=... ./ops/winston-ops/scripts/staging_maintain.sh
+```
 
 ## Phase D — Opt-in live smoke
 
@@ -95,5 +105,7 @@ Nightly also runs `maintain --once --no-persist` so a healthy synthetic trust lo
 
 ## Still ahead
 
-- **Provision `winston-ops` GCP** — Cloud SQL / scheduler for staging nightly (skeleton in `ops/winston-ops/`)
-- **Fill `profiles/supercalc_live.yaml`** — real read-only mappings only (never invent production names)
+- **Create/link `winston-ops` GCP project + set `enable_resources=true`** — then `terraform apply` (explicit)
+- **Fill `profiles/supercalc_live.yaml`** — real read-only mappings only (never invent production names); use `bootstrap_live_profile.sh`
+- **Push Cloud Run nightly image** — see `ops/winston-ops/cloudrun/README.md`
+- **Staging maintain `--persist`** — after Cloud SQL, schedule `staging_maintain.sh`
