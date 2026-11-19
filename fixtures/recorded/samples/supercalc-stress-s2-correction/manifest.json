@@ -1,0 +1,25 @@
+{
+  "bundle_id": "rec_c17ca5bf3ff9",
+  "capability_label": "fixture-verified",
+  "case_id": "recorded-supercalc-late-correction",
+  "change": {
+    "corrected_value": 5,
+    "field": "q",
+    "field_path": "state.carry",
+    "id": "S2_Q_CORRECTION",
+    "index": "STRESS",
+    "origin_date": "S2",
+    "origin_execution_id": "STRESS_S2_original",
+    "original_value": 0
+  },
+  "notes": "Sample recorded bundle for nightly offline continual testing",
+  "policy": {
+    "credentials_excluded": true,
+    "customer_pnl_excluded": true,
+    "live_network_blocked_on_replay": true
+  },
+  "profile": "supercalc_synthetic",
+  "recorded_at": "2026-11-19T21:11:28.585074+00:00",
+  "schema_version": "1.0.0",
+  "source": "synthetic_record"
+}

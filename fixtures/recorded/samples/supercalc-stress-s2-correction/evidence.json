@@ -1,0 +1,33 @@
+[
+  {
+    "note": "Allowlisted synthetic evidence only",
+    "source_scope": "supercalc_synthetic",
+    "source_type": "synthetic",
+    "status": "complete",
+    "type": "collection_receipt"
+  },
+  {
+    "index_id": "STRESS",
+    "levels": {
+      "S1": 101,
+      "S2": 102,
+      "S3": 103,
+      "S4": 104,
+      "S5": 105
+    },
+    "scenario": "original",
+    "type": "state_snapshot"
+  },
+  {
+    "index_id": "STRESS",
+    "levels": {
+      "S1": 101,
+      "S2": 102,
+      "S3": 108,
+      "S4": 109,
+      "S5": 110
+    },
+    "scenario": "corrected",
+    "type": "state_snapshot"
+  }
+]

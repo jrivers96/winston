@@ -28,9 +28,10 @@ Supercalc-shaped offline case (`supercalc-late-correction`):
 
 ```bash
 winston replay --case supercalc-late-correction --offline
+winston replay --bundle supercalc-stress-s2-correction --offline
 ```
 
-See [docs/continual-testing.md](docs/continual-testing.md) for the CI + fixture layers.
+See [docs/continual-testing.md](docs/continual-testing.md) for CI, recorded fixtures, and nightly layers.
 
 ## Quick Start
 

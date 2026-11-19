@@ -116,3 +116,6 @@ jobs:
 
       - name: Replay Supercalc late-correction case offline
         run: winston replay --case supercalc-late-correction --offline --format json
+
+      - name: Replay recorded sample bundle offline
+        run: winston replay --bundle supercalc-stress-s2-correction --offline --format json

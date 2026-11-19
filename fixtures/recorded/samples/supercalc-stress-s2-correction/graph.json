@@ -1,0 +1,204 @@
+{
+  "edges": [
+    {
+      "artifact_id": null,
+      "edge_type": "parent_state",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "STRESS_S1_original",
+      "target_execution_id": "STRESS_S2_original"
+    },
+    {
+      "artifact_id": null,
+      "edge_type": "parent_state",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "STRESS_S2_original",
+      "target_execution_id": "STRESS_S3_original"
+    },
+    {
+      "artifact_id": null,
+      "edge_type": "parent_state",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "STRESS_S3_original",
+      "target_execution_id": "STRESS_S4_original"
+    },
+    {
+      "artifact_id": null,
+      "edge_type": "parent_state",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "STRESS_S4_original",
+      "target_execution_id": "STRESS_S5_original"
+    },
+    {
+      "artifact_id": null,
+      "edge_type": "cross_index",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "STRESS_S3_original",
+      "target_execution_id": "HEDGE_ARM_S3_original"
+    },
+    {
+      "artifact_id": null,
+      "edge_type": "parent_state",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "TRUST_UNRELATED_S1_original",
+      "target_execution_id": "TRUST_UNRELATED_S2_original"
+    },
+    {
+      "artifact_id": null,
+      "edge_type": "parent_state",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "TRUST_UNRELATED_S2_original",
+      "target_execution_id": "TRUST_UNRELATED_S3_original"
+    },
+    {
+      "artifact_id": null,
+      "edge_type": "parent_state",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "TRUST_UNRELATED_S3_original",
+      "target_execution_id": "TRUST_UNRELATED_S4_original"
+    },
+    {
+      "artifact_id": null,
+      "edge_type": "parent_state",
+      "evidence_category": "observed",
+      "field_path": null,
+      "source_execution_id": "TRUST_UNRELATED_S4_original",
+      "target_execution_id": "TRUST_UNRELATED_S5_original"
+    }
+  ],
+  "nodes": [
+    {
+      "business_date": "S1",
+      "environment": "synthetic",
+      "execution_id": "STRESS_S1_original",
+      "index_id": "STRESS",
+      "is_selected": true,
+      "state_content": {
+        "carry": 0,
+        "level": 101
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S2",
+      "environment": "synthetic",
+      "execution_id": "STRESS_S2_original",
+      "index_id": "STRESS",
+      "is_selected": true,
+      "state_content": {
+        "carry": 0,
+        "level": 102
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S3",
+      "environment": "synthetic",
+      "execution_id": "STRESS_S3_original",
+      "index_id": "STRESS",
+      "is_selected": true,
+      "state_content": {
+        "carry": 0,
+        "level": 103
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S4",
+      "environment": "synthetic",
+      "execution_id": "STRESS_S4_original",
+      "index_id": "STRESS",
+      "is_selected": true,
+      "state_content": {
+        "carry": 0,
+        "level": 104
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S5",
+      "environment": "synthetic",
+      "execution_id": "STRESS_S5_original",
+      "index_id": "STRESS",
+      "is_selected": true,
+      "state_content": {
+        "carry": 0,
+        "level": 105
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S3",
+      "environment": "synthetic",
+      "execution_id": "HEDGE_ARM_S3_original",
+      "index_id": "HEDGE_ARM",
+      "is_selected": true,
+      "state_content": {
+        "level": 206
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S1",
+      "environment": "synthetic",
+      "execution_id": "TRUST_UNRELATED_S1_original",
+      "index_id": "TRUST_UNRELATED",
+      "is_selected": true,
+      "state_content": {
+        "level": 42
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S2",
+      "environment": "synthetic",
+      "execution_id": "TRUST_UNRELATED_S2_original",
+      "index_id": "TRUST_UNRELATED",
+      "is_selected": true,
+      "state_content": {
+        "level": 42
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S3",
+      "environment": "synthetic",
+      "execution_id": "TRUST_UNRELATED_S3_original",
+      "index_id": "TRUST_UNRELATED",
+      "is_selected": true,
+      "state_content": {
+        "level": 42
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S4",
+      "environment": "synthetic",
+      "execution_id": "TRUST_UNRELATED_S4_original",
+      "index_id": "TRUST_UNRELATED",
+      "is_selected": true,
+      "state_content": {
+        "level": 42
+      },
+      "status": "succeeded"
+    },
+    {
+      "business_date": "S5",
+      "environment": "synthetic",
+      "execution_id": "TRUST_UNRELATED_S5_original",
+      "index_id": "TRUST_UNRELATED",
+      "is_selected": true,
+      "state_content": {
+        "level": 42
+      },
+      "status": "succeeded"
+    }
+  ]
+}

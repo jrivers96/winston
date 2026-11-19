@@ -241,38 +241,44 @@ def impact(
 
 @app.command()
 def replay(
-    case: str = typer.Option(..., "--case", "-c", help="Test case name"),
+    case: str = typer.Option("list", "--case", "-c", help="Test case name or 'list'"),
+    bundle: Optional[str] = typer.Option(
+        None, "--bundle", "-b", help="Recorded bundle path or sample name"
+    ),
     offline: bool = typer.Option(True, "--offline/--live", help="Offline fixture mode"),
     output_format: str = typer.Option("text", "--format", "-f", help="Output format"),
 ) -> None:
-    """Replay a named offline evaluation case."""
+    """Replay a named offline evaluation case or recorded bundle."""
     from winston.evaluation.cases import list_cases, run_case
 
-    if case == "list":
+    if case == "list" and not bundle:
         cases = list_cases()
         if output_format == "json":
             _output_json({"cases": cases})
         else:
-            console.print("\n[bold]Known offline cases[/bold]")
+            console.print("\n[bold]Known offline cases / recorded bundles[/bold]")
             for case_id, description in cases.items():
                 console.print(f"  {case_id}: {description}")
         return
 
     try:
-        report = run_case(case, offline=offline)
-    except ValueError as e:
+        report = run_case(case if not bundle else "recorded", offline=offline, bundle=bundle)
+    except (ValueError, FileNotFoundError) as e:
         console.print(f"[red]{e}[/red]")
         raise typer.Exit(1)
     except AssertionError as e:
         console.print(f"[red]Case assertions failed: {e}[/red]")
         raise typer.Exit(1)
 
+    label = bundle or case
     if output_format == "json":
         _output_json(report)
     else:
-        console.print(f"\n[bold]Replay[/bold] {case} ({'offline' if offline else 'live'})")
+        console.print(f"\n[bold]Replay[/bold] {label} ({'offline' if offline else 'live'})")
         console.print(f"  Passed: {report.get('passed')}")
         console.print(f"  Capability: {report.get('capability_label')}")
+        if report.get("source"):
+            console.print(f"  Source: {report.get('source')}")
         impact_info = report.get("impact", {})
         if impact_info:
             console.print(
@@ -296,6 +302,57 @@ def replay(
 
     if not report.get("passed", False):
         raise typer.Exit(1)
+
+
+@app.command()
+def record(
+    case: str = typer.Option(
+        "supercalc-late-correction",
+        "--case",
+        "-c",
+        help="Synthetic case to record",
+    ),
+    output: str = typer.Option(
+        ...,
+        "--output",
+        "-o",
+        help="Output directory for the recorded bundle",
+    ),
+    output_format: str = typer.Option("text", "--format", "-f"),
+) -> None:
+    """Record an allowlisted offline fixture bundle (no secrets/P&L)."""
+    from pathlib import Path
+
+    from winston.evaluation.recorded import record_supercalc_late_correction
+
+    output_path = Path(output)
+    try:
+        if case in ("supercalc-late-correction", "supercalc-stress-s2-correction"):
+            written = record_supercalc_late_correction(output_path)
+        else:
+            console.print(
+                f"[red]Recording not implemented for case '{case}'. "
+                "Supported: supercalc-late-correction[/red]"
+            )
+            raise typer.Exit(1)
+    except Exception as e:
+        console.print(f"[red]Record failed: {e}[/red]")
+        raise typer.Exit(1)
+
+    payload = {
+        "case": case,
+        "output": str(written),
+        "capability_label": "fixture-verified",
+        "policy": {
+            "credentials_excluded": True,
+            "customer_pnl_excluded": True,
+        },
+    }
+    if output_format == "json":
+        _output_json(payload)
+    else:
+        console.print(f"[green]✓ Recorded bundle[/green] {written}")
+        console.print("  Secrets/P&L excluded by policy")
 
 
 @app.command(name="repair-plan")

@@ -8,6 +8,12 @@ from winston.evaluation.fixtures import (
     load_fixture,
     verify_golden_values,
 )
+from winston.evaluation.recorded import (
+    list_recorded_bundles,
+    load_bundle,
+    record_supercalc_late_correction,
+    replay_bundle,
+)
 from winston.evaluation.supercalc import (
     analyze_supercalc_late_correction,
     create_supercalc_graph,
@@ -25,4 +31,8 @@ __all__ = [
     "create_supercalc_graph",
     "verify_supercalc_golden_values",
     "analyze_supercalc_late_correction",
+    "list_recorded_bundles",
+    "load_bundle",
+    "record_supercalc_late_correction",
+    "replay_bundle",
 ]

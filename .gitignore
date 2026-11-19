@@ -47,6 +47,8 @@ dmypy.json
 
 # Winston runtime data (local artifacts and cache)
 .winston/
+# Keep checked-in recorded samples; ignore only runtime recordings if nested later
+!.winston/.gitkeep
 
 # Environment
 .env

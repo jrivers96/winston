@@ -1,0 +1,13 @@
+{
+  "affected_indices": [
+    "STRESS",
+    "HEDGE_ARM"
+  ],
+  "corrected_s5_level": 110,
+  "endpoint_date": "S5",
+  "excluded_index_prefixes": [
+    "TRUST_UNRELATED_"
+  ],
+  "origin_execution_id": "STRESS_S2_original",
+  "original_s5_level": 105
+}

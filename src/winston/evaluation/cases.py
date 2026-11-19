@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Dict
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
 
 from winston.evaluation.fixtures import create_demo_graph, verify_golden_values
+from winston.evaluation.fixtures import create_execution_id as demo_exec_id
+from winston.evaluation.recorded import (
+    list_recorded_bundles,
+    replay_bundle,
+    resolve_bundle_path,
+)
 from winston.evaluation.supercalc import (
     analyze_supercalc_late_correction,
     assert_supercalc_late_correction_report,
 )
-from winston.evaluation.fixtures import create_execution_id as demo_exec_id
-from winston.lineage.traversal import find_impact
 from winston.lineage.replay import create_replay_plan
+from winston.lineage.traversal import find_impact
 
 
 CaseFn = Callable[[], Dict[str, Any]]
@@ -57,18 +63,20 @@ def _demo_late_correction() -> Dict[str, Any]:
     }
 
 
-def run_case(case_id: str, offline: bool = True) -> Dict[str, Any]:
-    """Run a named evaluation case.
+def run_case(
+    case_id: str,
+    offline: bool = True,
+    bundle: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Run a named evaluation case or recorded bundle.
 
     Args:
-        case_id: Case identifier
-        offline: When True, refuse live adapters (required for v1 cases)
+        case_id: Case identifier (or 'recorded' when using --bundle)
+        offline: When True, refuse live adapters
+        bundle: Optional recorded bundle path or sample name
 
     Returns:
         Structured case report
-
-    Raises:
-        ValueError: Unknown case or live mode requested for offline-only case
     """
     if not offline:
         raise ValueError(
@@ -76,14 +84,26 @@ def run_case(case_id: str, offline: bool = True) -> Dict[str, Any]:
             "(live smoke is Phase D and not enabled here)"
         )
 
+    if bundle or case_id.startswith("recorded:"):
+        bundle_ref = bundle or case_id.split(":", 1)[1]
+        report = replay_bundle(resolve_bundle_path(bundle_ref), offline=True)
+        report["passed"] = all(report.get("assertions", {}).values())
+        return report
+
+    # Convenience: treat known sample names as recorded bundles
+    if case_id in list_recorded_bundles():
+        report = replay_bundle(resolve_bundle_path(case_id), offline=True)
+        report["passed"] = all(report.get("assertions", {}).values())
+        return report
+
     cases: Dict[str, CaseFn] = {
         "supercalc-late-correction": analyze_supercalc_late_correction,
         "demo-late-correction": _demo_late_correction,
     }
 
     if case_id not in cases:
-        known = ", ".join(sorted(cases))
-        raise ValueError(f"Unknown case '{case_id}'. Known cases: {known}")
+        known = ", ".join(sorted(list(cases) + list(list_recorded_bundles())))
+        raise ValueError(f"Unknown case '{case_id}'. Known cases/bundles: {known}")
 
     report = cases[case_id]()
 
@@ -96,8 +116,8 @@ def run_case(case_id: str, offline: bool = True) -> Dict[str, Any]:
 
 
 def list_cases() -> Dict[str, str]:
-    """Return known offline case IDs and short descriptions."""
-    return {
+    """Return known offline case IDs and recorded bundles."""
+    cases = {
         "supercalc-late-correction": (
             "STRESS S2 q correction → S3-S5 + HEDGE_ARM; TRUST_UNRELATED excluded"
         ),
@@ -105,3 +125,6 @@ def list_cases() -> Dict[str, str]:
             "DEMO D2 q correction → D3-D5 + DEMO_DEPENDENT; DEMO_UNRELATED excluded"
         ),
     }
+    for name, description in list_recorded_bundles().items():
+        cases[name] = f"recorded bundle: {description}"
+    return cases
