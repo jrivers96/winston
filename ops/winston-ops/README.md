@@ -49,14 +49,13 @@ GitHub Actions:
    gcloud auth login
    gcloud auth application-default login
    ```
-2. Create/link dedicated project (not Supercalc production):
+2. Create/link dedicated project (not Supercalc production).  
+   Current linked project: **`winston-ops-sc`** (display name “Winston Ops”, org `supercalc.ai`).
    ```bash
-   gcloud projects create winston-ops --name="Winston Ops"
-   gcloud config set project winston-ops
-   # link billing in console if create succeeds
+   gcloud config set project winston-ops-sc
    ```
 3. `cd ops/winston-ops/terraform`
-4. `cp terraform.tfvars.example terraform.tfvars` and set `project_id` (keep `enable_resources=false` until ready)
+4. `cp terraform.tfvars.example terraform.tfvars` and set `project_id = "winston-ops-sc"` (keep `enable_resources=false` until ready)
 5. `./ops/winston-ops/scripts/provision_check.sh`
 6. When ready: set `enable_resources=true`, then `terraform plan` / `terraform apply` (explicit approval)
 7. Build/push the Cloud Run image — see `cloudrun/README.md`

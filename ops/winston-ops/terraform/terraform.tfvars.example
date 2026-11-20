@@ -1,7 +1,9 @@
 # Copy to terraform.tfvars (gitignored) and fill real winston-ops project values.
 # Never point this at Supercalc production.
 
-project_id  = "winston-ops"   # replace with the real dedicated ops project ID
+# Globally unique project ID (display name can still be "Winston Ops").
+# Current Supercalc-linked ops project: winston-ops-sc
+project_id  = "winston-ops-sc"
 region      = "us-central1"
 environment = "staging"
 
