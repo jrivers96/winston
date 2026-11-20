@@ -1,0 +1,25 @@
+# Staging maintain --persist image for winston-ops Cloud SQL.
+# Build: gcloud builds submit --config ops/winston-ops/cloudrun/cloudbuild.maintain.yaml
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml README.md alembic.ini ./
+COPY src ./src
+COPY alembic ./alembic
+COPY profiles ./profiles
+COPY fixtures ./fixtures
+COPY ops/winston-ops/scripts ./ops/winston-ops/scripts
+
+RUN pip install --no-cache-dir -e . \
+    && chmod +x /app/ops/winston-ops/scripts/*.sh
+
+ENV WINSTON_OFFLINE_MODE=true
+ENV WINSTON_STAGING_OUT=/tmp/staging
+
+ENTRYPOINT ["/bin/bash", "/app/ops/winston-ops/scripts/cloud_maintain_entrypoint.sh"]

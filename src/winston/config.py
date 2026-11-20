@@ -5,7 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, PostgresDsn
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -22,8 +22,8 @@ class WinstonSettings(BaseSettings):
         extra="ignore",
     )
     
-    # Database
-    database_url: PostgresDsn = Field(
+    # Database (str — Cloud SQL unix sockets use empty URL host + ?host=/cloudsql/...)
+    database_url: str = Field(
         default="postgresql://winston:winston_dev@localhost:5432/winston",
         description="PostgreSQL connection URL",
     )

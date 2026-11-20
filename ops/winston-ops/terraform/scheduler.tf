@@ -1,6 +1,6 @@
-# Cloud Run Job + Scheduler placeholders for offline nightly.
-# The job image/command are filled after the first Artifact Registry push.
-# Until then, GitHub Actions nightly remains the default runner.
+# Cloud Run Job + Scheduler for staging maintain --persist.
+# Deployed live via ops/winston-ops/scripts/deploy_maintain_job.sh
+# (Terraform tracks desired state; import existing jobs before apply if needed.)
 
 resource "google_artifact_registry_repository" "winston" {
   count = var.enable_resources ? 1 : 0
@@ -15,16 +15,18 @@ resource "google_artifact_registry_repository" "winston" {
   depends_on = [time_sleep.api_propagation]
 }
 
-resource "google_cloud_run_v2_job" "nightly" {
+resource "google_cloud_run_v2_job" "maintain" {
   count = var.enable_resources ? 1 : 0
 
-  name     = "${local.name_prefix}-nightly"
+  name     = "${local.name_prefix}-maintain"
   location = var.region
   project  = var.project_id
 
   template {
     template {
       service_account = google_service_account.nightly[0].email
+      timeout         = "900s"
+      max_retries     = 0
 
       vpc_access {
         connector = google_vpc_access_connector.winston[0].id
@@ -39,33 +41,47 @@ resource "google_cloud_run_v2_job" "nightly" {
       }
 
       containers {
-        # Replace after first image push:
-        # ${var.region}-docker.pkg.dev/${var.project_id}/winston/winston-ops:nightly
-        image = "us-docker.pkg.dev/cloudrun/container/hello"
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/winston/winston-maintain:latest"
 
         env {
           name  = "WINSTON_OFFLINE_MODE"
           value = "true"
         }
         env {
-          name  = "WINSTON_NIGHTLY_OUT"
-          value = "/tmp/nightly"
+          name  = "WINSTON_STAGING_OUT"
+          value = "/tmp/staging"
+        }
+        env {
+          name  = "WINSTON_MAINTAIN_PROFILE"
+          value = "supercalc_synthetic"
+        }
+        env {
+          name = "WINSTON_DATABASE_URL"
+          value_source {
+            secret_key_ref {
+              secret  = google_secret_manager_secret.database_url[0].secret_id
+              version = "latest"
+            }
+          }
         }
 
-        # WINSTON_DATABASE_URL from Secret Manager for maintain --persist
         volume_mounts {
           name       = "cloudsql"
           mount_path = "/cloudsql"
         }
-      }
 
-      timeout = "1800s"
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "1Gi"
+          }
+        }
+      }
     }
   }
 
   lifecycle {
     ignore_changes = [
-      # Operators update the image after the first registry push.
       template[0].template[0].containers[0].image,
     ]
   }
@@ -73,15 +89,16 @@ resource "google_cloud_run_v2_job" "nightly" {
   depends_on = [
     time_sleep.api_propagation,
     google_artifact_registry_repository.winston,
+    google_secret_manager_secret_iam_member.nightly_database_url,
   ]
 }
 
-resource "google_cloud_scheduler_job" "nightly" {
+resource "google_cloud_scheduler_job" "maintain" {
   count = var.enable_resources ? 1 : 0
 
-  name        = "${local.name_prefix}-nightly"
-  description = "Trigger Winston offline nightly (fixture + maintain --no-persist)"
-  schedule    = var.nightly_schedule
+  name        = "${local.name_prefix}-maintain"
+  description = "Trigger Winston maintain --once --persist against winston-ops Cloud SQL"
+  schedule    = var.maintain_schedule
   time_zone   = "UTC"
   region      = var.region
   project     = var.project_id
@@ -92,7 +109,7 @@ resource "google_cloud_scheduler_job" "nightly" {
       "https://%s-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/%s/jobs/%s:run",
       var.region,
       var.project_id,
-      google_cloud_run_v2_job.nightly[0].name,
+      google_cloud_run_v2_job.maintain[0].name,
     )
 
     oauth_token {
@@ -100,5 +117,8 @@ resource "google_cloud_scheduler_job" "nightly" {
     }
   }
 
-  depends_on = [google_cloud_run_v2_job.nightly]
+  depends_on = [google_cloud_run_v2_job.maintain]
 }
+
+# Keep legacy nightly job name out of terraform; operators may delete
+# winston-staging-nightly (hello placeholder) manually after cutover.

@@ -5,7 +5,7 @@ Winston tests Supercalc-shaped products in layers. Capability labels:
 | Label | Meaning |
 | --- | --- |
 | `fixture-verified` | Offline synthetic / recorded fixtures only |
-| `live-verified` | Opt-in read-only live smoke (Phase D; not enabled yet) |
+| `live-verified` | Opt-in read-only live smoke against Supercalc Postgres (PSC from winston-ops) |
 
 ## Phase A — PR gate
 
@@ -78,9 +78,11 @@ Mappings follow **polymarket-gvf** tables (not generic calc-ops lineage slots):
 - CI: `.github/workflows/live-smoke.yml` is **workflow_dispatch only**
 - Labels: incomplete → `live-template`; verified reads → `live-verified`
 - Forbidden: mutate / trigger jobs / publish / remediate
-- Network: private-IP Cloud SQL — use Cloud Run in `adept-snow` + `polymarket-gvf-connector` (see `ops/winston-ops/docs/supercalc-sql-access.md`); password in `winston-staging-supercalc-pg-password`
+- Network: private-IP Cloud SQL — prefer **PSC** from `winston-ops-sc` (see `ops/winston-ops/docs/supercalc-sql-access.md`); alternate: Cloud Run in `adept-snow` + `polymarket-gvf-connector`
+- Password: `winston-staging-supercalc-pg-password`
 - Verify readonly: `./ops/winston-ops/scripts/verify_supercalc_readonly.sh`
-- Deploy live-smoke (adept-snow Cloud Run): `./ops/winston-ops/scripts/deploy_live_smoke_job.sh`
+- Deploy live-smoke (winston-ops via PSC): `./ops/winston-ops/scripts/deploy_live_smoke_ops.sh`
+- Deploy live-smoke (adept-snow unix socket): `./ops/winston-ops/scripts/deploy_live_smoke_job.sh`
 
 ```bash
 winston doctor --profile supercalc_live
@@ -115,8 +117,13 @@ winston maintain --once --persist
 
 Nightly also runs `maintain --once --no-persist` so a healthy synthetic trust loop is asserted without writing issues.
 
+## Staging deploy (done on winston-ops-sc)
+
+- **Maintain `--persist`** — `./ops/winston-ops/scripts/deploy_maintain_job.sh` → job `winston-staging-maintain`, schedule `0 */6 * * *` UTC
+- **PSC live-smoke** — `./ops/winston-ops/scripts/deploy_live_smoke_ops.sh` → `capability_label=live-verified`
+
 ## Still ahead
 
-- **Fill `profiles/supercalc_live.yaml`** — real read-only mappings only (never invent production names); use `bootstrap_live_profile.sh`
-- **Push Cloud Run nightly image** — replace hello placeholder; see `ops/winston-ops/cloudrun/README.md`
-- **Staging maintain `--persist`** — use Secret Manager `winston-staging-database-url` + `staging_maintain.sh`
+- **Wire live SoR into maintain trust contexts** — so production gaps (e.g. `integrity_checks`) open the same issue drafts as synthetic (`--inject-missing`)
+- Remap live probes off retired GVF writers (`signals` / `indexes` / `discovered_index_definitions`) toward current Supercalc signal tables when product wants that coverage
+- Leadership framing: [engineering-outcomes.md](engineering-outcomes.md)

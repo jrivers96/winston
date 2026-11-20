@@ -48,8 +48,14 @@ variable "reports_bucket_name" {
 
 variable "nightly_schedule" {
   type        = string
-  description = "Cron schedule for offline nightly (UTC)"
+  description = "Cron schedule for offline nightly (UTC) — legacy; prefer maintain_schedule"
   default     = "0 8 * * *"
+}
+
+variable "maintain_schedule" {
+  type        = string
+  description = "Cron schedule for maintain --persist against winston-ops Cloud SQL (UTC)"
+  default     = "0 */6 * * *"
 }
 
 variable "create_live_smoke_secret_shells" {

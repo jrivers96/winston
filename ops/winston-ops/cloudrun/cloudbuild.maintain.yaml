@@ -1,0 +1,14 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - ops/winston-ops/cloudrun/Dockerfile.maintain
+      - -t
+      - ${_REGION}-docker.pkg.dev/$PROJECT_ID/winston/winston-maintain:latest
+      - .
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/winston/winston-maintain:latest
+substitutions:
+  _REGION: us-central1
+timeout: 1200s

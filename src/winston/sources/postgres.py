@@ -184,6 +184,208 @@ class PostgresLiveReader(BusinessDataReader):
         except Exception as exc:  # noqa: BLE001
             return self._fail(str(exc), started)
 
+    def fetch_trust_snapshot(
+        self,
+        *,
+        index_name: Optional[str] = None,
+        lookback_dates: int = 5,
+        max_integrity_rows: Optional[int] = None,
+    ) -> SourceResult:
+        """Bounded reads that feed live trust-check contexts.
+
+        Pulls latest integrity run timestamps / non-pass rows, distinct series
+        session dates for an index, and optional coverage counts. Read-only.
+        """
+        started = datetime.now(timezone.utc)
+        mappings = self._config.source_mappings or {}
+        limit = max(1, min(int(self._config.max_rows_per_query), 500))
+        integrity_limit = max(
+            1, min(int(max_integrity_rows or limit), limit)
+        )
+        lookback = max(1, min(int(lookback_dates), 30))
+
+        try:
+            with self._connect() as conn:
+                with conn.cursor() as cur:
+                    cur.execute("SET default_transaction_read_only = on")
+                    timeout_ms = int(self._config.statement_timeout_seconds) * 1000
+                    cur.execute(
+                        "SELECT set_config('statement_timeout', %s, false)",
+                        (str(timeout_ms),),
+                    )
+
+                snapshot: Dict[str, Any] = {
+                    "latest_integrity_run_ts": None,
+                    "integrity_failures": [],
+                    "integrity_rows_scanned": 0,
+                    "series_dates": [],
+                    "series_latest_ts": None,
+                    "covered_count": None,
+                    "universe_count": None,
+                    "index_name": index_name,
+                }
+
+                integrity_map = mappings.get("integrity_checks") or {}
+                integrity_rel = str(
+                    integrity_map.get("relation")
+                    or integrity_map.get("table_name")
+                    or ""
+                ).strip()
+                if integrity_rel:
+                    if integrity_rel not in ALLOWED_RELATIONS:
+                        raise ValueError(
+                            f"Relation {integrity_rel!r} for integrity_checks "
+                            "is not allowlisted"
+                        )
+                    cols = integrity_map.get("columns") or {}
+                    run_ts_col = _validate_ident(
+                        str(cols.get("run_ts") or "run_ts"), "column"
+                    )
+                    status_col = _validate_ident(
+                        str(cols.get("status") or "status"), "column"
+                    )
+                    name_col = _validate_ident(
+                        str(cols.get("check_name") or "check_name"), "column"
+                    )
+                    observed_col = _validate_ident(
+                        str(cols.get("observed") or "observed"), "column"
+                    )
+                    threshold_col = _validate_ident(
+                        str(cols.get("threshold") or "threshold"), "column"
+                    )
+                    details_col = _validate_ident(
+                        str(cols.get("details") or "details"), "column"
+                    )
+                    rel = _validate_ident(integrity_rel, "relation")
+                    sql = (
+                        f'SELECT "{run_ts_col}", "{name_col}", "{status_col}", '
+                        f'"{observed_col}", "{threshold_col}", "{details_col}" '
+                        f'FROM public."{rel}" '
+                        f'ORDER BY "{run_ts_col}" DESC NULLS LAST '
+                        f"LIMIT {integrity_limit}"
+                    )
+                    with conn.cursor() as cur:
+                        cur.execute(sql)
+                        rows = cur.fetchall()
+                    snapshot["integrity_rows_scanned"] = len(rows)
+                    failures: List[Dict[str, Any]] = []
+                    latest_ts = None
+                    for row in rows:
+                        run_ts, check_name, status, observed, threshold, details = row
+                        if latest_ts is None and run_ts is not None:
+                            latest_ts = run_ts
+                        status_norm = (str(status).strip().lower() if status else "")
+                        if status_norm and status_norm not in {
+                            "pass",
+                            "ok",
+                            "healthy",
+                            "succeeded",
+                            "success",
+                        }:
+                            failures.append(
+                                {
+                                    "check_name": check_name,
+                                    "status": status,
+                                    "observed": observed,
+                                    "threshold": threshold,
+                                    "details": details,
+                                    "run_ts": (
+                                        run_ts.isoformat()
+                                        if hasattr(run_ts, "isoformat")
+                                        else run_ts
+                                    ),
+                                }
+                            )
+                    snapshot["latest_integrity_run_ts"] = (
+                        latest_ts.isoformat()
+                        if hasattr(latest_ts, "isoformat")
+                        else latest_ts
+                    )
+                    snapshot["integrity_failures"] = failures
+
+                series_map = mappings.get("index_series") or {}
+                series_rel = str(
+                    series_map.get("relation") or series_map.get("table_name") or ""
+                ).strip()
+                if series_rel and index_name:
+                    if series_rel not in ALLOWED_RELATIONS:
+                        raise ValueError(
+                            f"Relation {series_rel!r} for index_series "
+                            "is not allowlisted"
+                        )
+                    cols = series_map.get("columns") or {}
+                    ts_col = _validate_ident(
+                        str(cols.get("timestamp") or "timestamp"), "column"
+                    )
+                    name_col = _validate_ident(
+                        str(cols.get("index_name") or "index_name"), "column"
+                    )
+                    rel = _validate_ident(series_rel, "relation")
+                    # Distinct calendar dates for the configured index (bounded).
+                    dates_sql = (
+                        f'SELECT DISTINCT ("{ts_col}"::date)::text AS session_date '
+                        f'FROM public."{rel}" '
+                        f'WHERE "{name_col}" = %s '
+                        f'ORDER BY session_date DESC '
+                        f"LIMIT {lookback}"
+                    )
+                    latest_sql = (
+                        f'SELECT MAX("{ts_col}") FROM public."{rel}" '
+                        f'WHERE "{name_col}" = %s'
+                    )
+                    covered_sql = (
+                        f'SELECT COUNT(*) FROM public."{rel}" '
+                        f'WHERE "{name_col}" = %s'
+                    )
+                    with conn.cursor() as cur:
+                        cur.execute(dates_sql, (index_name,))
+                        date_rows = cur.fetchall()
+                        cur.execute(latest_sql, (index_name,))
+                        latest_row = cur.fetchone()
+                        cur.execute(covered_sql, (index_name,))
+                        covered_row = cur.fetchone()
+                    # Oldest→newest for expected-session comparison readability
+                    snapshot["series_dates"] = sorted(
+                        str(r[0]) for r in date_rows if r and r[0]
+                    )
+                    latest_series = latest_row[0] if latest_row else None
+                    snapshot["series_latest_ts"] = (
+                        latest_series.isoformat()
+                        if hasattr(latest_series, "isoformat")
+                        else latest_series
+                    )
+                    snapshot["covered_count"] = (
+                        int(covered_row[0]) if covered_row and covered_row[0] is not None else None
+                    )
+
+                defs_map = mappings.get("index_definitions") or {}
+                defs_rel = str(
+                    defs_map.get("relation") or defs_map.get("table_name") or ""
+                ).strip()
+                if defs_rel:
+                    if defs_rel not in ALLOWED_RELATIONS:
+                        raise ValueError(
+                            f"Relation {defs_rel!r} for index_definitions "
+                            "is not allowlisted"
+                        )
+                    rel = _validate_ident(defs_rel, "relation")
+                    with conn.cursor() as cur:
+                        cur.execute(f'SELECT COUNT(*) FROM public."{rel}"')
+                        universe_row = cur.fetchone()
+                    snapshot["universe_count"] = (
+                        int(universe_row[0])
+                        if universe_row and universe_row[0] is not None
+                        else None
+                    )
+
+            return self._ok(
+                snapshot,
+                started,
+                message="Trust snapshot fetched from allowlisted relations",
+            )
+        except Exception as exc:  # noqa: BLE001
+            return self._fail(str(exc), started)
+
     def probe_mapped_relations(
         self,
         mapping_ids: Optional[Sequence[str]] = None,

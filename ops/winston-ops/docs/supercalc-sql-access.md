@@ -9,37 +9,52 @@
 | Read-only user | `winston_readonly` |
 | Password secret (winston-ops) | `winston-staging-supercalc-pg-password` |
 | Password secret (adept-snow copy) | `winston-readonly-password` |
-| IAM | `winston-nightly@winston-ops-sc` → `roles/cloudsql.client` on adept-snow |
+| PSC | Enabled on Supercalc instance; auto-endpoint in `winston-staging-vpc` |
+| PSC consumer IP | `10.20.0.3` (ACTIVE) |
+| Service connection policy | `winston-staging-sql-scp` (`google-cloud-sql`) |
 | SELECT grants | `discovered_index_definitions`, `indexes`, `integrity_checks`, `hedge_alert_outcomes`, `risk_rollups`, `signals` |
 
-Verify:
+## Preferred path: PSC from winston-ops
+
+Cross-project Private Service Connect — live-smoke runs in **winston-ops-sc** over the PSC IP:
 
 ```bash
-./ops/winston-ops/scripts/verify_supercalc_readonly.sh
+./ops/winston-ops/scripts/deploy_live_smoke_ops.sh
 ```
 
-## Why not Auth Proxy from a laptop / winston-ops VPC alone?
+Job: `winston-staging-live-smoke` → VPC connector `winston-stg-conn` → `10.20.0.3:5432` (sslmode=require).
+Successful run sets `capability_label=live-verified`.
 
-The instance is **private IP only** (`sql.restrictPublicIp`). Cloud SQL Auth Proxy defaults to public IP and fails; `--private-ip` only works if the client has a route into the Supercalc VPC’s private services range.
+## Alternate path: Cloud Run in adept-snow
 
-VPC peering from `winston-ops-sc` to `adept-snow` **does not** transitively reach Cloud SQL’s private service connection range.
-
-## Recommended paths
-
-1. **Preferred for live smoke:** deploy/run the Winston job in **`adept-snow-481601-c6`**:
+Still valid if you want unix-socket Auth Proxy in the producer VPC:
 
 ```bash
 ./ops/winston-ops/scripts/deploy_live_smoke_job.sh
 ```
 
-That builds `gcr.io/adept-snow-481601-c6/winston-live-smoke`, attaches
-`polymarket-gvf-connector` + Cloud SQL instance, injects
-`WINSTON_SUPERCALC_PG_PASSWORD` from `winston-readonly-password`, and executes
-`winston live-smoke` (allowlisted SELECTs → `live-verified` on success).
+## Why not Auth Proxy from a laptop / peering alone?
 
-2. **Later:** Private Service Connect endpoint for Cloud SQL into `winston-ops-sc`.
+The instance is **private IP only** (`sql.restrictPublicIp`). Cloud SQL Auth Proxy defaults to public IP and fails; `--private-ip` only works if the client has a route into the Supercalc VPC’s private services range.
 
-3. **Winston agent state** stays on `winston-ops-sc` Cloud SQL (`winston-staging-pg`) — never merge DBs.
+VPC peering from `winston-ops-sc` to `adept-snow` **does not** transitively reach Cloud SQL’s private service connection range — use **PSC** instead.
+
+## Winston agent state (separate DB)
+
+Scheduled maintain --persist against winston-ops Cloud SQL:
+
+```bash
+./ops/winston-ops/scripts/deploy_maintain_job.sh
+```
+
+| Item | Value |
+| --- | --- |
+| Job | `winston-staging-maintain` |
+| Schedule | `0 */6 * * *` UTC |
+| Instance | `winston-ops-sc:us-central1:winston-staging-pg` |
+| Secret | `winston-staging-database-url` |
+
+Never merge Winston agent DB with Supercalc `polymarket_gvf`.
 
 ## Re-grant SELECT
 

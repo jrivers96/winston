@@ -82,8 +82,9 @@ resource "google_secret_manager_secret_version" "database_url" {
   count = var.enable_resources ? 1 : 0
 
   secret = google_secret_manager_secret.database_url[0].id
+  # localhost authority satisfies URL parsers; ?host=/cloudsql/... is the real socket.
   secret_data = format(
-    "postgresql+psycopg://%s:%s@/%s?host=/cloudsql/%s",
+    "postgresql+psycopg://%s:%s@localhost/%s?host=/cloudsql/%s",
     google_sql_user.winston_app[0].name,
     random_password.sql_app[0].result,
     google_sql_database.winston[0].name,

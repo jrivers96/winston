@@ -36,7 +36,9 @@ winston live-smoke --profile supercalc_live   # reports missing live config unle
 
 See [docs/continual-testing.md](docs/continual-testing.md) for CI, recorded fixtures, nightly, live-smoke, and trust/maintain layers.
 
-GCP staging skeleton (no apply by default): [ops/winston-ops/README.md](ops/winston-ops/README.md) — run `./ops/winston-ops/scripts/provision_check.sh` before any `terraform apply`.
+**Leadership outcomes** (what Winston delivers vs does not): [docs/engineering-outcomes.md](docs/engineering-outcomes.md).
+
+GCP staging (`winston-ops-sc`): [ops/winston-ops/README.md](ops/winston-ops/README.md) — PSC live-smoke and scheduled maintain are documented in [ops/winston-ops/docs/supercalc-sql-access.md](ops/winston-ops/docs/supercalc-sql-access.md).
 
 ## Quick Start
 

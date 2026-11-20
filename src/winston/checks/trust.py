@@ -19,7 +19,7 @@ class FreshnessSLACheck(Check):
 
     @property
     def version(self) -> str:
-        return "1.0.0"
+        return "1.1.0"
 
     @property
     def description(self) -> str:
@@ -29,15 +29,27 @@ class FreshnessSLACheck(Check):
         graph: Optional[DependencyGraph] = context.get("graph")
         index_id: Optional[str] = context.get("index_id")
         expected_sessions: Optional[List[str]] = context.get("expected_sessions")
+        present_sessions = context.get("present_sessions")
 
-        if graph is None or index_id is None or expected_sessions is None:
+        if index_id is None or expected_sessions is None:
             return self._create_result(
                 CheckStatus.UNKNOWN,
-                "Missing required context: graph, index_id, expected_sessions",
+                "Missing required context: index_id, expected_sessions",
                 severity=CheckSeverity.WARNING,
             )
 
-        present = {n.business_date for n in graph.get_all_by_index(index_id)}
+        if present_sessions is not None:
+            present = {str(s) for s in present_sessions}
+        elif graph is not None:
+            present = {n.business_date for n in graph.get_all_by_index(index_id)}
+        else:
+            return self._create_result(
+                CheckStatus.UNKNOWN,
+                "Missing required context: graph or present_sessions",
+                severity=CheckSeverity.WARNING,
+                index_id=index_id,
+            )
+
         missing = sorted(set(expected_sessions) - present)
 
         if missing:
@@ -208,4 +220,69 @@ class UnrelatedExclusionCheck(Check):
             CheckStatus.PASS,
             "Unrelated indices excluded from impact closure",
             observed=str(sorted(impact.affected_indices)),
+        )
+
+
+# Integrity row statuses treated as healthy (case-insensitive).
+INTEGRITY_PASS_STATUSES = frozenset({"pass", "ok", "healthy", "succeeded", "success"})
+
+
+class IntegrityStatusCheck(Check):
+    """Fail when Supercalc integrity_checks rows report non-pass status."""
+
+    @property
+    def check_id(self) -> str:
+        return "integrity_status"
+
+    @property
+    def version(self) -> str:
+        return "1.0.0"
+
+    @property
+    def description(self) -> str:
+        return "Non-pass integrity_checks rows are production trust gaps"
+
+    def run(self, context: Dict[str, Any]) -> CheckResult:
+        failures = context.get("integrity_failures")
+        index_id = context.get("index_id") or "trust_status"
+
+        if failures is None:
+            return self._create_result(
+                CheckStatus.UNKNOWN,
+                "Integrity failure list unavailable — cannot claim healthy integrity",
+                index_id=index_id,
+                severity=CheckSeverity.WARNING,
+            )
+
+        if not isinstance(failures, list):
+            return self._create_result(
+                CheckStatus.UNKNOWN,
+                "integrity_failures must be a list",
+                index_id=index_id,
+                severity=CheckSeverity.WARNING,
+            )
+
+        if failures:
+            names = [
+                str(f.get("check_name") or f.get("name") or "?")
+                for f in failures
+                if isinstance(f, dict)
+            ]
+            return self._create_result(
+                CheckStatus.FAIL,
+                f"Integrity gaps: {len(failures)} non-pass check(s): {names}",
+                index_id=index_id,
+                expected="pass/ok/healthy",
+                observed=str(names),
+                severity=CheckSeverity.ERROR,
+                metadata={
+                    "integrity_failures": failures,
+                    "failure_names": names,
+                },
+            )
+
+        return self._create_result(
+            CheckStatus.PASS,
+            "No non-pass integrity_checks rows in snapshot",
+            index_id=index_id,
         )

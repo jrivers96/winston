@@ -1,0 +1,21 @@
+# Live-smoke via PSC endpoint in winston-ops VPC (not adept-snow unix socket).
+FROM python:3.12-slim
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY pyproject.toml README.md ./
+COPY src ./src
+COPY profiles ./profiles
+COPY ops/winston-ops/cloudrun/supercalc_live_psc.profile.yaml ./profiles/supercalc_live.yaml
+
+RUN pip install --no-cache-dir -e .
+
+ENV WINSTON_OFFLINE_MODE=false
+ENV WINSTON_LIVE_SMOKE=1
+ENV WINSTON_GCP_PROJECT=winston-ops-sc
+
+ENTRYPOINT ["winston", "live-smoke", "--profile", "supercalc_live", "--format", "json"]

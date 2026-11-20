@@ -10,8 +10,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-COPY pyproject.toml README.md ./
+COPY pyproject.toml README.md alembic.ini ./
 COPY src ./src
+COPY alembic ./alembic
 COPY profiles ./profiles
 COPY fixtures ./fixtures
 COPY ops/winston-ops/scripts ./ops/winston-ops/scripts
