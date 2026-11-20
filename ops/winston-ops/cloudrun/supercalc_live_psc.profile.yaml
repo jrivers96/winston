@@ -136,6 +136,19 @@ indices:
     owner: "supercalc"
     description: "Trust/integrity surface (integrity_checks + evaluation/trust_status.py)"
 
+# Live maintain: SoR snapshot → same trust checks / issue drafts as synthetic.
+trust_checks:
+  freshness:
+    index_name: "systemic_stress"
+    lookback_dates: 5
+  stale_window:
+    sla_hours: 24
+  coverage:
+    min_coverage_ratio: 0.0
+  integrity:
+    index_id: "trust_status"
+    max_rows: 50
+
 required_env:
   - WINSTON_LIVE_SMOKE=1
   - WINSTON_OFFLINE_MODE=false

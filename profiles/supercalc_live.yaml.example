@@ -126,6 +126,19 @@ indices:
     owner: ""
     description: "Fill with a real Supercalc index_name from indexes / discovered_index_definitions"
 
+# Optional: live maintain maps SoR → trust checks → issue drafts
+trust_checks:
+  freshness:
+    index_name: ""          # series index_name in indexes (e.g. systemic_stress)
+    lookback_dates: 5
+  stale_window:
+    sla_hours: 24
+  coverage:
+    min_coverage_ratio: 0.0
+  integrity:
+    index_id: "trust_status"
+    max_rows: 50
+
 required_env:
   - WINSTON_LIVE_SMOKE=1
   - WINSTON_OFFLINE_MODE=false

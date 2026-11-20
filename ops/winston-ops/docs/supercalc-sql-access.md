@@ -41,7 +41,7 @@ VPC peering from `winston-ops-sc` to `adept-snow` **does not** transitively reac
 
 ## Winston agent state (separate DB)
 
-Scheduled maintain --persist against winston-ops Cloud SQL:
+Scheduled **synthetic** maintain --persist against winston-ops Cloud SQL:
 
 ```bash
 ./ops/winston-ops/scripts/deploy_maintain_job.sh
@@ -53,6 +53,24 @@ Scheduled maintain --persist against winston-ops Cloud SQL:
 | Schedule | `0 */6 * * *` UTC |
 | Instance | `winston-ops-sc:us-central1:winston-staging-pg` |
 | Secret | `winston-staging-database-url` |
+| Profile | `supercalc_synthetic` (offline fixtures) |
+
+### Live SoR maintain (production gaps → same drafts)
+
+Dual-connect job: PSC read of Supercalc + persist to Winston agent DB:
+
+```bash
+./ops/winston-ops/scripts/deploy_maintain_live_job.sh
+```
+
+| Item | Value |
+| --- | --- |
+| Job | `winston-staging-maintain-live` |
+| Schedule | `30 */6 * * *` UTC |
+| SoR | PSC `10.20.0.3` → `polymarket_gvf` (read-only) |
+| Persist | `winston-staging-database-url` |
+| Secrets | + `winston-staging-supercalc-pg-password` |
+| Profile | `supercalc_live` (`WINSTON_LIVE_SMOKE=1`) |
 
 Never merge Winston agent DB with Supercalc `polymarket_gvf`.
 

@@ -189,6 +189,13 @@ class UnrelatedExclusionCheck(Check):
         return "Unrelated trust/status series must stay out of impact closure"
 
     def run(self, context: Dict[str, Any]) -> CheckResult:
+        if context.get("lineage_available") is False:
+            return self._create_result(
+                CheckStatus.NOT_APPLICABLE,
+                "Live SoR has no lineage edges — unrelated exclusion is fixture-only",
+                severity=CheckSeverity.INFO,
+            )
+
         graph: Optional[DependencyGraph] = context.get("graph")
         origin_execution_id: Optional[str] = context.get("origin_execution_id")
         excluded_prefixes: Optional[List[str]] = context.get("excluded_prefixes")

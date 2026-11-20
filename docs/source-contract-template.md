@@ -47,3 +47,19 @@ Enable only when real metric names are known.
 - `systemic_stress` — stress breadth index (often computed; series may appear in `indexes`)
 - `hedge_windows` — `hedge_alert_outcomes`
 - `trust_status` — integrity / trust surfaces
+
+## Trust checks (live maintain)
+
+Optional `trust_checks:` block maps SoR into Phase E/F checks:
+
+| Slot | Check | Live source |
+| --- | --- | --- |
+| `freshness.index_name` + lookback | `freshness_sla` | Distinct dates from `indexes` |
+| `stale_window.sla_hours` | `stale_window` | Latest `integrity_checks.run_ts` (fallback: series max timestamp) |
+| `coverage.min_coverage_ratio` | `coverage_gap` | Series row count vs `discovered_index_definitions` count |
+| `integrity` | `integrity_status` | Non-pass rows in `integrity_checks` |
+
+```bash
+WINSTON_OFFLINE_MODE=false WINSTON_LIVE_SMOKE=1 \
+  winston maintain --once --profile supercalc_live --format json
+```

@@ -5,7 +5,8 @@ Winston tests Supercalc-shaped products in layers. Capability labels:
 | Label | Meaning |
 | --- | --- |
 | `fixture-verified` | Offline synthetic / recorded fixtures only |
-| `live-verified` | Opt-in read-only live smoke against Supercalc Postgres (PSC from winston-ops) |
+| `live-verified` | Opt-in live smoke **or** live maintain against Supercalc Postgres (PSC from winston-ops) |
+| `live-template` | Live profile present but contracts/credentials/gates incomplete |
 
 ## Phase A — PR gate
 
@@ -99,10 +100,11 @@ Checks (`src/winston/checks/trust.py`):
 
 | Check | Fail when |
 | --- | --- |
-| `freshness_sla` | Expected STRESS sessions missing |
+| `freshness_sla` | Expected STRESS sessions missing (or live series dates) |
 | `stale_window` | Observation older than SLA hours |
 | `coverage_gap` | Declared coverage below threshold |
-| `unrelated_exclusion` | `TRUST_UNRELATED_*` leaks into STRESS impact |
+| `unrelated_exclusion` | `TRUST_UNRELATED_*` leaks into STRESS impact (fixture; N/A on live) |
+| `integrity_status` | Non-pass `integrity_checks` rows (live SoR) |
 
 ```bash
 # Healthy offline pass (exit 0)
@@ -117,13 +119,26 @@ winston maintain --once --persist
 
 Nightly also runs `maintain --once --no-persist` so a healthy synthetic trust loop is asserted without writing issues.
 
+## Phase F — Live SoR → same trust reports
+
+Live Supercalc Postgres feeds the same `run_trust_checks` → `results_to_issue_drafts` path. Production gaps open the same issue/obligation drafts (`environment=production`, `capability_label=live-verified`).
+
+```bash
+WINSTON_OFFLINE_MODE=false WINSTON_LIVE_SMOKE=1 \
+  winston maintain --once --profile supercalc_live --no-persist --format json
+```
+
+Gates match live-smoke (flag + contracts + read-only SoR). Persist still uses Winston agent DB only.
+
 ## Staging deploy (done on winston-ops-sc)
 
-- **Maintain `--persist`** — `./ops/winston-ops/scripts/deploy_maintain_job.sh` → job `winston-staging-maintain`, schedule `0 */6 * * *` UTC
+- **Maintain `--persist` (synthetic)** — `./ops/winston-ops/scripts/deploy_maintain_job.sh` → `winston-staging-maintain`, `0 */6 * * *` UTC
+- **Maintain live SoR** — `./ops/winston-ops/scripts/deploy_maintain_live_job.sh` → `winston-staging-maintain-live` (PSC read + Winston write)
 - **PSC live-smoke** — `./ops/winston-ops/scripts/deploy_live_smoke_ops.sh` → `capability_label=live-verified`
 
 ## Still ahead
 
-- **Wire live SoR into maintain trust contexts** — so production gaps (e.g. `integrity_checks`) open the same issue drafts as synthetic (`--inject-missing`)
+- **Tune live `trust_checks`** — confirm series `index_name` + SLA against real Supercalc data
 - Remap live probes off retired GVF writers (`signals` / `indexes` / `discovered_index_definitions`) toward current Supercalc signal tables when product wants that coverage
+- **Live lineage** — enable `unrelated_exclusion` on live when SoR exposes edges
 - Leadership framing: [engineering-outcomes.md](engineering-outcomes.md)
