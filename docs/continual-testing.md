@@ -78,7 +78,8 @@ Mappings follow **polymarket-gvf** tables (not generic calc-ops lineage slots):
 - CI: `.github/workflows/live-smoke.yml` is **workflow_dispatch only**
 - Labels: incomplete → `live-template`; verified reads → `live-verified`
 - Forbidden: mutate / trigger jobs / publish / remediate
-- Network: private IP / Auth Proxy; password via `secret:winston-staging-supercalc-pg-password`
+- Network: private-IP Cloud SQL — use Cloud Run in `adept-snow` + `polymarket-gvf-connector` (see `ops/winston-ops/docs/supercalc-sql-access.md`); password in `winston-staging-supercalc-pg-password`
+- Verify readonly: `./ops/winston-ops/scripts/verify_supercalc_readonly.sh`
 
 ```bash
 winston doctor --profile supercalc_live

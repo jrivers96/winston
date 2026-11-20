@@ -17,6 +17,8 @@ Local Dev Container + GitHub Actions remain the default runners until this proje
 
 Applied project: **`winston-ops-sc`** (Cloud SQL connection `winston-ops-sc:us-central1:winston-staging-pg`).
 
+Supercalc Postgres (`polymarket_gvf`) is private-IP only. Read-only user `winston_readonly` + secret are configured; live SQL probes should run in **adept-snow** (VPC connector), not via laptop Auth Proxy alone. See [docs/supercalc-sql-access.md](docs/supercalc-sql-access.md).
+
 ## Rules
 
 - Do **not** put Winston agent state in the Supercalc production project
