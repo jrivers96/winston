@@ -1,4 +1,4 @@
-"""Opt-in live smoke for Supercalc-shaped products.
+"""Opt-in live smoke for Supercalc-shaped products (Postgres).
 
 Default: report precise missing configuration and exit without network.
 When contracts + credentials + WINSTON_LIVE_SMOKE=1 are present, attempt
@@ -10,14 +10,14 @@ from __future__ import annotations
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 from winston.config import get_settings
 from winston.sources.contracts import (
     load_profile_yaml,
     validate_live_profile_file,
 )
-from winston.sources.databricks import DatabricksConfig, DatabricksLiveReader
+from winston.sources.postgres import PostgresConfig, PostgresLiveReader
 from winston.sources.datadog import DatadogConfig, DatadogLiveReader
 
 
@@ -42,7 +42,6 @@ def _budgets_from_profile(profile_data: Dict[str, Any]) -> Dict[str, int]:
         "max_business_dates": int(budgets.get("max_business_dates", 3)),
         "max_rows": int(budgets.get("max_rows", 500)),
         "max_seconds": int(budgets.get("max_seconds", 60)),
-        "max_metric_series": int(budgets.get("max_metric_series", 20)),
     }
 
 
@@ -77,6 +76,7 @@ def run_live_smoke(
         "capability_label": "live-template",
         "passed": False,
         "forbidden_operations": sorted(FORBIDDEN_OPS),
+        "primary_source": "postgres",
     }
 
     contract = validate_live_profile_file(profile_name, settings.profiles_dir)
@@ -91,6 +91,8 @@ def run_live_smoke(
             "warnings",
             "capability_label",
             "notes",
+            "postgres_configured",
+            "datadog_enabled",
         )
     }
     report["missing_configuration"].extend(contract.get("missing") or [])
@@ -141,14 +143,13 @@ def run_live_smoke(
             {
                 "id": "source_contracts",
                 "status": "incomplete",
-                "detail": "Source contracts incomplete — not attempting live network",
+                "detail": "Postgres source contracts incomplete — not attempting live network",
                 "missing": contract.get("missing"),
             }
         )
         report["completed_at"] = datetime.now(timezone.utc).isoformat()
         return report
 
-    # Contracts ready — attempt bounded read-only probes
     profile_data = load_profile_yaml(Path(contract["path"]))
     budgets = _budgets_from_profile(profile_data)
     report["budgets"] = budgets
@@ -160,69 +161,49 @@ def run_live_smoke(
         )
 
     report["network_attempted"] = True
-    dbx_cfg = profile_data.get("databricks") or {}
-    dd_cfg = profile_data.get("datadog") or {}
-
-    databricks = DatabricksLiveReader(
-        DatabricksConfig(
-            host=dbx_cfg.get("host", ""),
-            warehouse_id=dbx_cfg.get("warehouse_id", ""),
-            catalog=dbx_cfg.get("catalog", ""),
-            auth_method=dbx_cfg.get("auth_method", ""),
-            credential_provider=dbx_cfg.get("credential_provider", ""),
+    pg_cfg = profile_data.get("postgres") or {}
+    postgres = PostgresLiveReader(
+        PostgresConfig(
+            host=pg_cfg.get("host", ""),
+            port=int(pg_cfg.get("port", 5432) or 5432),
+            database=pg_cfg.get("database", ""),
+            sslmode=pg_cfg.get("sslmode", "require") or "require",
+            auth_method=pg_cfg.get("auth_method", ""),
+            credential_provider=pg_cfg.get("credential_provider", ""),
+            connect_timeout_seconds=int(pg_cfg.get("connect_timeout_seconds", 30)),
             statement_timeout_seconds=int(
-                dbx_cfg.get("statement_timeout_seconds", budgets["max_seconds"])
+                pg_cfg.get("statement_timeout_seconds", budgets["max_seconds"])
             ),
+            private_ip_required=bool(pg_cfg.get("private_ip_required", True)),
+            read_only=bool(pg_cfg.get("read_only", True)),
             max_rows_per_query=budgets["max_rows"],
-        )
-    )
-    datadog = DatadogLiveReader(
-        DatadogConfig(
-            site=dd_cfg.get("site", "datadoghq.com"),
-            auth_method=dd_cfg.get("auth_method", ""),
-            credential_provider=dd_cfg.get("credential_provider", ""),
+            source_mappings=pg_cfg.get("mappings") or {},
         )
     )
 
-    dbx_available = databricks.is_available()
-    dd_available = datadog.is_available()
-
+    pg_available = postgres.is_available()
     report["checks"].append(
         {
-            "id": "databricks_sdk",
-            "status": "pass" if dbx_available else "fail",
+            "id": "postgres_driver",
+            "status": "pass" if pg_available else "fail",
             "detail": (
-                "databricks-sql-connector importable and config present"
-                if dbx_available
-                else "Databricks SDK/config unavailable — install winston[databricks] "
-                "and provide credentials via credential_provider"
-            ),
-        }
-    )
-    report["checks"].append(
-        {
-            "id": "datadog_sdk",
-            "status": "pass" if dd_available else "fail",
-            "detail": (
-                "datadog-api-client importable and config present"
-                if dd_available
-                else "Datadog SDK/config unavailable — install winston[datadog] "
-                "and provide credentials via credential_provider"
+                "psycopg importable and postgres contract configured"
+                if pg_available
+                else "Postgres driver/config unavailable — install psycopg "
+                "and provide credential_provider for Supercalc read-only access"
             ),
         }
     )
 
-    # Bounded probe: call live readers; stubs return unsupported without full wiring.
-    # This keeps the surface read-only and documents remaining live work precisely.
-    if dbx_available:
-        probe = databricks.get_executions(
+    if pg_available:
+        probe = postgres.get_executions(
             index_id=(profile_data.get("indices") or [{}])[0].get("id", ""),
             from_date="1970-01-01",
             to_date="1970-01-01",
         )
         report["checks"].append(
             {
-                "id": "databricks_read_probe",
+                "id": "postgres_read_probe",
                 "status": (
                     "pass"
                     if probe.receipt.status.value
@@ -231,57 +212,76 @@ def run_live_smoke(
                 ),
                 "detail": (
                     f"status={probe.receipt.status.value}; "
-                    "live SQL execution path still requires allowlisted query templates"
+                    "live SQL path still requires allowlisted view queries"
                 ),
                 "warnings": probe.receipt.warnings,
             }
         )
     else:
         report["missing_configuration"].append(
-            "Databricks live reader unavailable (package or credential_provider)"
+            "Postgres live reader unavailable (psycopg or credential_provider)"
         )
 
-    if dd_available:
-        now = datetime.now(timezone.utc)
-        probe = datadog.get_metrics(
-            metric_query=(dd_cfg.get("metrics") or [{}])[0].get("name", "unset"),
-            start_time=now,
-            end_time=now,
+    dd_cfg = profile_data.get("datadog") or {}
+    if dd_cfg.get("enabled"):
+        datadog = DatadogLiveReader(
+            DatadogConfig(
+                site=dd_cfg.get("site", "datadoghq.com"),
+                auth_method=dd_cfg.get("auth_method", ""),
+                credential_provider=dd_cfg.get("credential_provider", ""),
+            )
         )
+        dd_available = datadog.is_available()
         report["checks"].append(
             {
-                "id": "datadog_read_probe",
-                "status": (
-                    "pass"
-                    if probe.receipt.status.value
-                    not in {"failed", "permission_denied"}
-                    else "incomplete"
-                ),
+                "id": "datadog_sdk",
+                "status": "pass" if dd_available else "fail",
                 "detail": (
-                    f"status={probe.receipt.status.value}; "
-                    "live metric query path still requires configured metric mappings"
+                    "datadog-api-client importable and config present"
+                    if dd_available
+                    else "Datadog enabled but SDK/config unavailable"
                 ),
-                "warnings": probe.receipt.warnings,
             }
         )
+        if dd_available:
+            now = datetime.now(timezone.utc)
+            probe = datadog.get_metrics(
+                metric_query=(dd_cfg.get("metrics") or [{}])[0].get("name", "unset"),
+                start_time=now,
+                end_time=now,
+            )
+            report["checks"].append(
+                {
+                    "id": "datadog_read_probe",
+                    "status": (
+                        "pass"
+                        if probe.receipt.status.value
+                        not in {"failed", "permission_denied"}
+                        else "incomplete"
+                    ),
+                    "detail": f"status={probe.receipt.status.value}",
+                    "warnings": probe.receipt.warnings,
+                }
+            )
     else:
-        report["missing_configuration"].append(
-            "Datadog live reader unavailable (package or credential_provider)"
+        report["checks"].append(
+            {
+                "id": "datadog_sdk",
+                "status": "skipped",
+                "detail": "datadog.enabled=false — telemetry optional for Supercalc",
+            }
         )
 
     check_statuses = {c["status"] for c in report["checks"]}
     fully_live = (
         contract.get("ready_for_live_smoke")
-        and dbx_available
-        and dd_available
+        and pg_available
         and "fail" not in check_statuses
         and "blocked" not in check_statuses
         and not report["missing_configuration"]
     )
-    # Live readers currently return unsupported until query templates are wired —
-    # do not claim live-verified until a successful complete read exists.
     live_complete = any(
-        c.get("id", "").endswith("_read_probe")
+        c.get("id") == "postgres_read_probe"
         and c.get("status") == "pass"
         and "unsupported" not in str(c.get("detail", ""))
         for c in report["checks"]
@@ -295,7 +295,7 @@ def run_live_smoke(
         report["passed"] = False
         if not live_complete:
             report["warnings"].append(
-                "Live adapters responded but did not complete a verified read; "
+                "Postgres adapter responded but did not complete a verified read; "
                 "label remains live-template until allowlisted queries succeed"
             )
 

@@ -61,11 +61,16 @@ Terraform defaults to `enable_resources=false` (no billable creates). Local Dev 
 
 ## Phase D — Opt-in live smoke
 
+Supercalc’s system of record is **Postgres** (not Databricks). Live smoke uses a
+read-only Postgres contract; Winston Cloud SQL remains separate agent state.
+
 - Template: `profiles/supercalc_live.yaml.example` (empty slots — no invented production names)
-- Copy to `profiles/supercalc_live.yaml` (gitignored) and fill real mappings
+- Copy to `profiles/supercalc_live.yaml` (gitignored) and fill real **view/table + column** mappings
+- Prefer Supercalc-owned **views** across project boundaries
 - Gate: `WINSTON_LIVE_SMOKE=1` and `WINSTON_OFFLINE_MODE=false`
 - CLI: `winston live-smoke --profile supercalc_live`
-- Doctor: `winston doctor --profile supercalc_live` lists missing contract fields
+- Doctor: `winston doctor --profile supercalc_live` lists missing `postgres.*` fields
+- Datadog is optional (`datadog.enabled: false` by default)
 - CI: `.github/workflows/live-smoke.yml` is **workflow_dispatch only** (never on PRs)
 - Labels: incomplete config → `live-template`; successful verified reads → `live-verified`
 - Forbidden: mutate / trigger jobs / publish / remediate

@@ -1,11 +1,13 @@
 # Supercalc LIVE profile template (incomplete by design)
 # Copy to profiles/supercalc_live.yaml (gitignored locally) and fill real values.
-# Do NOT invent production table/metric names. Leave blanks until known.
+# Supercalc system of record is Postgres — not Databricks.
+# Do NOT invent production relation/column names. Leave blanks until known.
 # Secrets stay in env / Secret Manager — never in this file.
+# Prefer Supercalc-owned views over raw tables across project boundaries.
 
 profile_id: supercalc_live
-description: "Opt-in live read-only smoke for Supercalc-shaped products"
-version: "0.1.0"
+description: "Opt-in live read-only smoke for Supercalc Postgres-shaped products"
+version: "0.2.0"
 capability_label: live-template  # becomes live-verified only after successful smoke
 
 live_smoke:
@@ -15,28 +17,33 @@ live_smoke:
     max_business_dates: 3
     max_rows: 500
     max_seconds: 60
-    max_metric_series: 20
   allowed_operations:
     - read_executions
     - read_manifests
     - read_state_refs
-    - query_metrics
+    - read_calendars
   forbidden_operations:
     - mutate_data
     - trigger_jobs
     - publish_results
     - remediate_production
 
-databricks:
-  auth_method: ""              # e.g. oauth_m2m | pat
-  host: ""                     # workspace host
-  warehouse_id: ""
-  catalog: ""
-  credential_provider: ""      # reference only, no secret value
+postgres:
+  # Cross-project read-only access to Supercalc Postgres (not Winston Cloud SQL)
+  host: ""                       # private host / Auth Proxy endpoint — do not invent
+  port: 5432
+  database: ""
+  sslmode: ""                    # e.g. require | verify-full
+  auth_method: ""                # password | iam | cloudsql_iam
+  credential_provider: ""        # reference only, e.g. secret:winston-staging-supercalc-pg-password
+  connect_timeout_seconds: 30
   statement_timeout_seconds: 60
+  private_ip_required: true      # align with org public-IP restrictions
+  read_only: true
   mappings:
+    # Prefer views Supercalc owns; relation = view or table name (no invented names)
     index_definitions:
-      table_name: ""
+      relation: ""
       columns:
         index_id: ""
         environment: ""
@@ -44,7 +51,7 @@ databricks:
         calendar_ref: ""
         timezone: ""
     calendars:
-      table_name: ""
+      relation: ""
       columns:
         calendar_id: ""
         business_date: ""
@@ -52,7 +59,7 @@ databricks:
         previous_calculation_date: ""
         timezone: ""
     executions:
-      table_name: ""
+      relation: ""
       columns:
         execution_id: ""
         index_id: ""
@@ -67,7 +74,7 @@ databricks:
         output_ref: ""
         state_ref: ""
     input_manifests:
-      table_name: ""
+      relation: ""
       columns:
         manifest_id: ""
         execution_id: ""
@@ -75,7 +82,7 @@ databricks:
         input_dataset_refs: ""
         configuration_ref: ""
     artifacts:
-      table_name: ""
+      relation: ""
       columns:
         artifact_id: ""
         execution_id: ""
@@ -84,7 +91,7 @@ databricks:
         content_hash: ""
         storage_ref: ""
     selected_revisions:
-      table_name: ""
+      relation: ""
       columns:
         index_id: ""
         environment: ""
@@ -93,20 +100,14 @@ databricks:
         selection_policy: ""
         selection_time: ""
 
+# Optional telemetry — not required for live-smoke readiness
 datadog:
+  enabled: false
   site: ""                     # e.g. datadoghq.com
   auth_method: ""              # api_key | oauth
   credential_provider: ""
-  metrics: []                  # fill with real metric names only when known
-  # Example shape (leave empty in template):
-  # - name: ""
-  #   service_tag: ""
-  #   environment_tag: ""
-  #   aggregation: ""
+  metrics: []
   services: []
-  # - index_id: ""
-  #   datadog_service: ""
-  #   datadog_env: ""
 
 indices:
   - id: ""                     # live index id once known
@@ -118,7 +119,6 @@ indices:
 
 required_env:
   - WINSTON_LIVE_SMOKE=1
-  # Credential env names are organization-specific; document references only:
-  # - DATABRICKS_HOST (or provider-specific)
-  # - DATABRICKS_TOKEN / OAuth via credential_provider
-  # - DD_API_KEY / DD_APP_KEY via credential_provider
+  - WINSTON_OFFLINE_MODE=false
+  # Credential env / secrets are organization-specific; document references only:
+  # - secret:winston-staging-supercalc-pg-password (or env via credential_provider)

@@ -10,7 +10,7 @@ Local Dev Container + GitHub Actions remain the default runners until this proje
 | --- | --- |
 | Cloud SQL (Postgres 16, **private IP**) | Staging Winston agent state (issues/obligations) |
 | VPC + Serverless VPC Access | Required by org `sql.restrictPublicIp` |
-| Secret Manager | DB URL + empty shells for future live-smoke credentials |
+| Secret Manager | Winston DB URL + Supercalc read-only PG password shell (+ optional Datadog) |
 | Artifact Registry + Cloud Run Job | Nightly offline replay / staging maintain |
 | Cloud Scheduler | Cron trigger for the nightly job (UTC) |
 | GCS reports bucket | Nightly JSON summaries |

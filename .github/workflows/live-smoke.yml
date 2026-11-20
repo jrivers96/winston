@@ -29,8 +29,9 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install package (with optional live extras)
-        run: pip install -e ".[dev,databricks,datadog]"
+      - name: Install package
+        # Supercalc live path is Postgres (psycopg is a core dep). Datadog optional.
+        run: pip install -e ".[dev]"
 
       - name: Doctor live profile contracts
         run: winston doctor --profile ${{ inputs.profile }} --format json > doctor-live.json

@@ -1,6 +1,7 @@
 """Source-contract validation for live profiles.
 
 Reports precise missing configuration. Never invents production names.
+Supercalc live contracts target Postgres (views preferred); Datadog is optional.
 """
 
 from __future__ import annotations
@@ -11,8 +12,14 @@ from typing import Any, Dict, List, Optional, Tuple
 import yaml
 
 
-REQUIRED_DATABRICKS_TOP = ("host", "warehouse_id", "catalog", "auth_method", "credential_provider")
-REQUIRED_DATABRICKS_MAPPINGS = (
+REQUIRED_POSTGRES_TOP = (
+    "host",
+    "database",
+    "sslmode",
+    "auth_method",
+    "credential_provider",
+)
+REQUIRED_POSTGRES_MAPPINGS = (
     "index_definitions",
     "calendars",
     "executions",
@@ -43,17 +50,23 @@ def _blank(value: Any) -> bool:
     return False
 
 
-def _check_mapping_table(
+def _check_mapping_relation(
     mapping_name: str,
     mapping: Any,
     missing: List[str],
+    *,
+    prefix_root: str = "postgres.mappings",
 ) -> None:
-    prefix = f"databricks.mappings.{mapping_name}"
+    prefix = f"{prefix_root}.{mapping_name}"
     if not isinstance(mapping, dict):
         missing.append(f"{prefix} (missing object)")
         return
-    if _blank(mapping.get("table_name")):
-        missing.append(f"{prefix}.table_name")
+    # Prefer "relation" (view/table); accept legacy "table_name" for transition
+    relation = mapping.get("relation")
+    if _blank(relation):
+        relation = mapping.get("table_name")
+    if _blank(relation):
+        missing.append(f"{prefix}.relation")
     columns = mapping.get("columns") or {}
     if not isinstance(columns, dict) or not columns:
         missing.append(f"{prefix}.columns")
@@ -67,6 +80,7 @@ def validate_live_contract(profile_data: Dict[str, Any]) -> Dict[str, Any]:
     """Validate a live profile's source contracts.
 
     Returns a structured report with missing fields and readiness.
+    Datadog is optional — incomplete Datadog only warns unless enabled: true.
     """
     missing: List[str] = []
     warnings: List[str] = []
@@ -77,23 +91,43 @@ def validate_live_contract(profile_data: Dict[str, Any]) -> Dict[str, Any]:
             "live_smoke.enabled_by_default should be false; require WINSTON_LIVE_SMOKE"
         )
 
-    databricks = profile_data.get("databricks") or {}
-    for key in REQUIRED_DATABRICKS_TOP:
-        if _blank(databricks.get(key)):
-            missing.append(f"databricks.{key}")
+    # Reject Databricks-shaped Supercalc live profiles — wrong stack
+    if "databricks" in profile_data and profile_data.get("databricks"):
+        warnings.append(
+            "databricks block is ignored for Supercalc live — use postgres mappings"
+        )
 
-    mappings = databricks.get("mappings") or {}
-    for mapping_name in REQUIRED_DATABRICKS_MAPPINGS:
-        _check_mapping_table(mapping_name, mappings.get(mapping_name), missing)
+    postgres = profile_data.get("postgres") or {}
+    for key in REQUIRED_POSTGRES_TOP:
+        if _blank(postgres.get(key)):
+            missing.append(f"postgres.{key}")
+
+    if postgres.get("read_only") is False:
+        missing.append("postgres.read_only must be true (or omitted)")
+
+    mappings = postgres.get("mappings") or {}
+    for mapping_name in REQUIRED_POSTGRES_MAPPINGS:
+        _check_mapping_relation(mapping_name, mappings.get(mapping_name), missing)
 
     datadog = profile_data.get("datadog") or {}
-    for key in REQUIRED_DATADOG_TOP:
-        if _blank(datadog.get(key)):
-            missing.append(f"datadog.{key}")
-    if _blank(datadog.get("metrics")):
-        missing.append("datadog.metrics (at least one configured metric)")
-    if _blank(datadog.get("services")):
-        warnings.append("datadog.services is empty — metric correlation may be limited")
+    datadog_enabled = bool(datadog.get("enabled"))
+    datadog_configured = False
+    if datadog_enabled:
+        for key in REQUIRED_DATADOG_TOP:
+            if _blank(datadog.get(key)):
+                missing.append(f"datadog.{key}")
+        if _blank(datadog.get("metrics")):
+            missing.append("datadog.metrics (at least one configured metric)")
+        datadog_configured = all(
+            not _blank(datadog.get(k)) for k in REQUIRED_DATADOG_TOP
+        ) and not _blank(datadog.get("metrics"))
+    elif any(
+        not _blank(datadog.get(k))
+        for k in ("site", "auth_method", "credential_provider", "metrics")
+    ):
+        warnings.append(
+            "datadog fields are set but datadog.enabled is false — telemetry skipped"
+        )
 
     indices = profile_data.get("indices") or []
     if not indices:
@@ -103,7 +137,7 @@ def validate_live_contract(profile_data: Dict[str, Any]) -> Dict[str, Any]:
             if not isinstance(index, dict) or _blank(index.get("id")):
                 missing.append(f"indices[{i}].id")
 
-    forbidden = (live.get("forbidden_operations") or [])
+    forbidden = live.get("forbidden_operations") or []
     for op in ("mutate_data", "trigger_jobs", "publish_results"):
         if op not in forbidden:
             warnings.append(f"live_smoke.forbidden_operations should include '{op}'")
@@ -114,12 +148,11 @@ def validate_live_contract(profile_data: Dict[str, Any]) -> Dict[str, Any]:
         "missing": missing,
         "warnings": warnings,
         "capability_label": "live-verified" if ready else "live-template",
-        "databricks_configured": all(
-            not _blank(databricks.get(k)) for k in REQUIRED_DATABRICKS_TOP
+        "postgres_configured": all(
+            not _blank(postgres.get(k)) for k in REQUIRED_POSTGRES_TOP
         ),
-        "datadog_configured": all(
-            not _blank(datadog.get(k)) for k in REQUIRED_DATADOG_TOP
-        ),
+        "datadog_enabled": datadog_enabled,
+        "datadog_configured": datadog_configured,
     }
 
 

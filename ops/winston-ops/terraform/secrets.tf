@@ -3,7 +3,9 @@
 
 locals {
   live_smoke_secret_ids = var.create_live_smoke_secret_shells ? [
-    "${local.name_prefix}-databricks-token",
+    # Supercalc read-only Postgres (not Winston agent DB)
+    "${local.name_prefix}-supercalc-pg-password",
+    # Optional Datadog
     "${local.name_prefix}-datadog-api-key",
     "${local.name_prefix}-datadog-app-key",
   ] : []

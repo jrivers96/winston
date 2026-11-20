@@ -10,7 +10,7 @@ It keeps a durable record of how a system is set up, what has changed, and what 
 
 - **Phase 0-1**: Foundation with PostgreSQL, Alembic, artifact store, domain models
 - **Phase 2**: Chain analysis, lineage graph, impact analysis, replay planning
-- **Phase 3-4**: Databricks and Datadog adapters (fixture-first, live stubs)
+- **Phase 3-4**: Source adapters (Postgres live stub for Supercalc; Databricks/Datadog optional)
 - **Phase 5**: Context assembly with token budgets and provenance
 - **Phase 6**: Documentation and release polish
 
@@ -123,7 +123,7 @@ Winston maintains two separate graphs joined through execution evidence:
 
 | System | Owns |
 | ------ | ---- |
-| Databricks | Business inputs, calculation outputs, run records (read-only) |
+| Supercalc Postgres | Business inputs, calculation outputs, run records (read-only views) |
 | Datadog | Operational observations within query windows |
 | PostgreSQL | Issues, obligations, hypotheses, investigation state, manifests |
 | Local Files | Immutable evidence, fixtures, reports, Git cache |
@@ -134,7 +134,7 @@ Winston maintains two separate graphs joined through execution evidence:
 | ------ | ------- |
 | `winston.domain` | Identities, calendars, revisions, evidence, issues |
 | `winston.storage` | PostgreSQL + artifact store |
-| `winston.sources` | Databricks, Datadog, synthetic adapters |
+| `winston.sources` | Postgres (Supercalc), Databricks/Datadog optional, synthetic adapters |
 | `winston.repositories` | Registry, component maps, source reads |
 | `winston.lineage` | Dependency graph, impact, replay planning |
 | `winston.checks` | Deterministic business/chain/ops checks |
