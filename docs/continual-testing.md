@@ -80,6 +80,7 @@ Mappings follow **polymarket-gvf** tables (not generic calc-ops lineage slots):
 - Forbidden: mutate / trigger jobs / publish / remediate
 - Network: private-IP Cloud SQL — use Cloud Run in `adept-snow` + `polymarket-gvf-connector` (see `ops/winston-ops/docs/supercalc-sql-access.md`); password in `winston-staging-supercalc-pg-password`
 - Verify readonly: `./ops/winston-ops/scripts/verify_supercalc_readonly.sh`
+- Deploy live-smoke (adept-snow Cloud Run): `./ops/winston-ops/scripts/deploy_live_smoke_job.sh`
 
 ```bash
 winston doctor --profile supercalc_live

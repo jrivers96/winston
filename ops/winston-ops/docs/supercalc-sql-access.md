@@ -26,13 +26,18 @@ VPC peering from `winston-ops-sc` to `adept-snow` **does not** transitively reac
 
 ## Recommended paths
 
-1. **Preferred for live smoke:** run Winston live-smoke / SQL probes as a Cloud Run Job in **`adept-snow-481601-c6`** with:
-   - `run.googleapis.com/cloudsql-instances: adept-snow-481601-c6:us-central1:polymarket-gvf-db-small`
-   - `vpc-access-connector: polymarket-gvf-connector`
-   - DSN host: `/cloudsql/adept-snow-481601-c6:us-central1:polymarket-gvf-db-small`
-   - user `winston_readonly` + password from Secret Manager
+1. **Preferred for live smoke:** deploy/run the Winston job in **`adept-snow-481601-c6`**:
 
-2. **Later:** Private Service Connect endpoint for Cloud SQL into `winston-ops-sc`, then Auth Proxy / Cloud Run there.
+```bash
+./ops/winston-ops/scripts/deploy_live_smoke_job.sh
+```
+
+That builds `gcr.io/adept-snow-481601-c6/winston-live-smoke`, attaches
+`polymarket-gvf-connector` + Cloud SQL instance, injects
+`WINSTON_SUPERCALC_PG_PASSWORD` from `winston-readonly-password`, and executes
+`winston live-smoke` (allowlisted SELECTs → `live-verified` on success).
+
+2. **Later:** Private Service Connect endpoint for Cloud SQL into `winston-ops-sc`.
 
 3. **Winston agent state** stays on `winston-ops-sc` Cloud SQL (`winston-staging-pg`) — never merge DBs.
 

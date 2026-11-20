@@ -1,0 +1,12 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -f
+      - ops/winston-ops/cloudrun/Dockerfile.live-smoke
+      - -t
+      - gcr.io/$PROJECT_ID/winston-live-smoke:latest
+      - .
+images:
+  - gcr.io/$PROJECT_ID/winston-live-smoke:latest
+timeout: 1200s

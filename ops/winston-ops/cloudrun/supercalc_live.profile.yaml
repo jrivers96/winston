@@ -1,0 +1,141 @@
+# Committed Cloud Run profile (no passwords). Password via env WINSTON_SUPERCALC_PG_PASSWORD.
+# Local only (gitignored). Filled from polymarket-gvf/storage/models.py + Cloud SQL.
+# Secrets stay in Secret Manager — do not put passwords here.
+# Reachability: private IP requires VPC peering / Auth Proxy from winston-ops-sc.
+
+profile_id: supercalc_live
+description: "Opt-in live read-only smoke for Supercalc (polymarket-gvf) Postgres"
+version: "0.3.0"
+capability_label: live-template
+
+live_smoke:
+  enabled_by_default: false
+  require_env_flag: WINSTON_LIVE_SMOKE
+  budgets:
+    max_business_dates: 3
+    max_rows: 500
+    max_seconds: 60
+  allowed_operations:
+    - read_index_definitions
+    - read_index_series
+    - read_integrity_checks
+    - read_hedge_outcomes
+    - read_risk_rollups
+    - read_signals
+  forbidden_operations:
+    - mutate_data
+    - trigger_jobs
+    - publish_results
+    - remediate_production
+
+postgres:
+  # Private-IP Cloud SQL. From Cloud Run in adept-snow use the unix socket host below.
+  # Laptop Auth Proxy cannot reach private IP without a VPC path (see ops/winston-ops/docs/supercalc-sql-access.md).
+  host: "/cloudsql/adept-snow-481601-c6:us-central1:polymarket-gvf-db-small"
+  port: 5432
+  database: "polymarket_gvf"
+  sslmode: "disable"  # socket path already encrypted by Cloud SQL Auth Proxy sidecar
+  auth_method: "password"
+  credential_provider: "env:WINSTON_SUPERCALC_PG_PASSWORD"
+  connect_timeout_seconds: 30
+  statement_timeout_seconds: 60
+  private_ip_required: true
+  read_only: true
+  connection_name: "adept-snow-481601-c6:us-central1:polymarket-gvf-db-small"
+  db_user: "winston_readonly"
+  mappings:
+    index_definitions:
+      relation: "discovered_index_definitions"
+      columns:
+        id: "id"
+        index_name: "index_name"
+        candidate_id: "candidate_id"
+        status: "status"
+        promoted_at: "promoted_at"
+        retired_at: "retired_at"
+        last_score: "last_score"
+        thresholds: "thresholds"
+        notes: "notes"
+        created_at: "created_at"
+        updated_at: "updated_at"
+    index_series:
+      relation: "indexes"
+      columns:
+        id: "id"
+        timestamp: "timestamp"
+        index_name: "index_name"
+        value: "value"
+        index_metadata: "index_metadata"
+        created_at: "created_at"
+    integrity_checks:
+      relation: "integrity_checks"
+      columns:
+        id: "id"
+        run_ts: "run_ts"
+        check_name: "check_name"
+        status: "status"
+        observed: "observed"
+        threshold: "threshold"
+        details: "details"
+        created_at: "created_at"
+    hedge_alert_outcomes:
+      relation: "hedge_alert_outcomes"
+      columns:
+        id: "id"
+        alerted_at: "alerted_at"
+        market_id: "market_id"
+        signal_type: "signal_type"
+        onset_ts: "onset_ts"
+        horizon_minutes: "horizon_minutes"
+        expected_edge: "expected_edge"
+        one_leg_cost: "one_leg_cost"
+        hit: "hit"
+        scored_at: "scored_at"
+        created_at: "created_at"
+    risk_rollups:
+      relation: "risk_rollups"
+      columns:
+        id: "id"
+        as_of_ts: "as_of_ts"
+        theme: "theme"
+        rollup_version: "rollup_version"
+        n_markets: "n_markets"
+        transition_risk_mean: "transition_risk_mean"
+        transition_risk_max: "transition_risk_max"
+        created_at: "created_at"
+    signals:
+      relation: "signals"
+      columns:
+        id: "id"
+        market_id: "market_id"
+        timestamp: "timestamp"
+        signal_blob: "signal_blob"
+        created_at: "created_at"
+
+datadog:
+  enabled: false
+  site: ""
+  auth_method: ""
+  credential_provider: ""
+  metrics: []
+  services: []
+
+# Product surfaces (computed and/or stored). Stress index is primarily computed
+# from signals; persisted cross-market series live in indexes.index_name.
+indices:
+  - id: "systemic_stress"
+    environment: "prod"
+    owner: "supercalc"
+    description: "Systemic stress breadth index (evaluation/stress_index.py; series may land in indexes)"
+  - id: "hedge_windows"
+    environment: "prod"
+    owner: "supercalc"
+    description: "Hedge opportunity / alert outcomes (hedge_alert_outcomes)"
+  - id: "trust_status"
+    environment: "prod"
+    owner: "supercalc"
+    description: "Trust/integrity surface (integrity_checks + evaluation/trust_status.py)"
+
+required_env:
+  - WINSTON_LIVE_SMOKE=1
+  - WINSTON_OFFLINE_MODE=false

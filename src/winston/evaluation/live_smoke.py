@@ -170,6 +170,7 @@ def run_live_smoke(
             sslmode=pg_cfg.get("sslmode", "require") or "require",
             auth_method=pg_cfg.get("auth_method", ""),
             credential_provider=pg_cfg.get("credential_provider", ""),
+            db_user=pg_cfg.get("db_user", "winston_readonly") or "winston_readonly",
             connect_timeout_seconds=int(pg_cfg.get("connect_timeout_seconds", 30)),
             statement_timeout_seconds=int(
                 pg_cfg.get("statement_timeout_seconds", budgets["max_seconds"])
@@ -177,6 +178,7 @@ def run_live_smoke(
             private_ip_required=bool(pg_cfg.get("private_ip_required", True)),
             read_only=bool(pg_cfg.get("read_only", True)),
             max_rows_per_query=budgets["max_rows"],
+            connection_name=pg_cfg.get("connection_name", "") or "",
             source_mappings=pg_cfg.get("mappings") or {},
         )
     )
@@ -195,28 +197,39 @@ def run_live_smoke(
         }
     )
 
+    live_read_complete = False
     if pg_available:
-        probe = postgres.get_executions(
-            index_id=(profile_data.get("indices") or [{}])[0].get("id", ""),
-            from_date="1970-01-01",
-            to_date="1970-01-01",
+        connectivity = postgres.probe_connectivity()
+        report["checks"].append(
+            {
+                "id": "postgres_connectivity",
+                "status": (
+                    "pass"
+                    if connectivity.receipt.status.value == "complete"
+                    else "fail"
+                ),
+                "detail": f"status={connectivity.receipt.status.value}",
+                "warnings": connectivity.receipt.warnings,
+            }
         )
+        probe = postgres.probe_mapped_relations()
+        live_read_complete = probe.receipt.status.value == "complete"
         report["checks"].append(
             {
                 "id": "postgres_read_probe",
-                "status": (
-                    "pass"
-                    if probe.receipt.status.value
-                    not in {"failed", "permission_denied"}
-                    else "incomplete"
-                ),
+                "status": "pass" if live_read_complete else "fail",
                 "detail": (
                     f"status={probe.receipt.status.value}; "
-                    "live SQL path still requires allowlisted view queries"
+                    f"allowlisted probes={len((probe.data or {}).get('probes') or {})}"
                 ),
+                "probes": (probe.data or {}).get("probes"),
                 "warnings": probe.receipt.warnings,
             }
         )
+        if not live_read_complete:
+            report["missing_configuration"].append(
+                "Postgres allowlisted read probe failed — check VPC/Cloud SQL path and password"
+            )
     else:
         report["missing_configuration"].append(
             "Postgres live reader unavailable (psycopg or credential_provider)"
@@ -276,27 +289,22 @@ def run_live_smoke(
     fully_live = (
         contract.get("ready_for_live_smoke")
         and pg_available
+        and live_read_complete
         and "fail" not in check_statuses
         and "blocked" not in check_statuses
         and not report["missing_configuration"]
     )
-    live_complete = any(
-        c.get("id") == "postgres_read_probe"
-        and c.get("status") == "pass"
-        and "unsupported" not in str(c.get("detail", ""))
-        for c in report["checks"]
-    )
 
-    if fully_live and live_complete:
+    if fully_live:
         report["capability_label"] = "live-verified"
         report["passed"] = True
     else:
         report["capability_label"] = "live-template"
         report["passed"] = False
-        if not live_complete:
+        if not live_read_complete:
             report["warnings"].append(
-                "Postgres adapter responded but did not complete a verified read; "
-                "label remains live-template until allowlisted queries succeed"
+                "Postgres adapter did not complete allowlisted reads; "
+                "label remains live-template until probes succeed"
             )
 
     report["completed_at"] = datetime.now(timezone.utc).isoformat()
