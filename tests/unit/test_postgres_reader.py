@@ -126,3 +126,107 @@ class TestProbeMapped:
         assert result.receipt.status.value == "complete"
         assert result.data["probes"]["signals"]["count"] == 7
         assert result.data["probes"]["signals"]["sample_rows"] == 1
+
+
+class TestFetchTrustSnapshot:
+    def test_snapshot_maps_integrity_and_series(self, monkeypatch):
+        monkeypatch.setenv("WINSTON_SUPERCALC_PG_PASSWORD", "x")
+        from datetime import datetime, timezone
+
+        reader = PostgresLiveReader(
+            _cfg(
+                source_mappings={
+                    "integrity_checks": {
+                        "relation": "integrity_checks",
+                        "columns": {
+                            "run_ts": "run_ts",
+                            "check_name": "check_name",
+                            "status": "status",
+                            "observed": "observed",
+                            "threshold": "threshold",
+                            "details": "details",
+                        },
+                    },
+                    "index_series": {
+                        "relation": "indexes",
+                        "columns": {
+                            "timestamp": "timestamp",
+                            "index_name": "index_name",
+                        },
+                    },
+                    "index_definitions": {
+                        "relation": "discovered_index_definitions",
+                        "columns": {"id": "id"},
+                    },
+                }
+            )
+        )
+
+        class FakeCursor:
+            def __init__(self):
+                self._q = ""
+
+            def execute(self, sql, params=None):
+                self._q = sql
+
+            def fetchone(self):
+                if "MAX" in self._q:
+                    return (datetime(2024, 6, 10, tzinfo=timezone.utc),)
+                if "COUNT" in self._q:
+                    return (42,)
+                return None
+
+            def fetchall(self):
+                if "integrity_checks" in self._q:
+                    return [
+                        (
+                            datetime(2024, 6, 10, tzinfo=timezone.utc),
+                            "series_fresh",
+                            "fail",
+                            "1",
+                            "0",
+                            "{}",
+                        ),
+                        (
+                            datetime(2024, 6, 9, tzinfo=timezone.utc),
+                            "ok_check",
+                            "pass",
+                            "1",
+                            "1",
+                            "{}",
+                        ),
+                    ]
+                if "session_date" in self._q or "DISTINCT" in self._q:
+                    return [("2024-06-09",), ("2024-06-10",)]
+                return []
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        class FakeConn:
+            def cursor(self):
+                return FakeCursor()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return False
+
+        @contextmanager
+        def fake_connect():
+            yield FakeConn()
+
+        reader._connect = fake_connect  # type: ignore[method-assign]
+        result = reader.fetch_trust_snapshot(
+            index_name="systemic_stress", lookback_dates=5
+        )
+        assert result.receipt.status.value == "complete"
+        data = result.data
+        assert data["integrity_failures"][0]["check_name"] == "series_fresh"
+        assert data["series_dates"] == ["2024-06-09", "2024-06-10"]
+        assert data["covered_count"] == 42
+        assert data["universe_count"] == 42

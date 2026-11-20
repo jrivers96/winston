@@ -1,4 +1,5 @@
 # Staging maintain --persist image for winston-ops Cloud SQL.
+# Synthetic (default) or live SoR via WINSTON_MAINTAIN_PROFILE=supercalc_live.
 # Build: gcloud builds submit --config ops/winston-ops/cloudrun/cloudbuild.maintain.yaml
 
 FROM python:3.12-slim
@@ -15,6 +16,8 @@ COPY alembic ./alembic
 COPY profiles ./profiles
 COPY fixtures ./fixtures
 COPY ops/winston-ops/scripts ./ops/winston-ops/scripts
+# PSC live profile for dual-connect maintain (Supercalc read + Winston write)
+COPY ops/winston-ops/cloudrun/supercalc_live_psc.profile.yaml ./profiles/supercalc_live.yaml
 
 RUN pip install --no-cache-dir -e . \
     && chmod +x /app/ops/winston-ops/scripts/*.sh

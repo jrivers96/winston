@@ -448,9 +448,19 @@ def maintain(
         "--inject-missing",
         help="Offline test aid: drop a STRESS session label (e.g. S5)",
     ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Live profiles: skip offline/flag gates (still needs contracts)",
+    ),
     output_format: str = typer.Option("text", "--format", "-f"),
 ) -> None:
-    """Run trust/SLA maintenance and optionally open Winston issues."""
+    """Run trust/SLA maintenance and optionally open Winston issues.
+
+    Offline: --profile supercalc_synthetic (fixture-verified).
+    Live SoR: --profile supercalc_live with WINSTON_LIVE_SMOKE=1 and
+    WINSTON_OFFLINE_MODE=false (same draft report shape; capability live-verified).
+    """
     from winston.maintenance import maintain_once
 
     if not once:
@@ -461,6 +471,7 @@ def maintain(
             profile=profile,
             persist=persist,
             inject_missing_session=inject_missing,
+            force=force,
         )
     except Exception as e:
         console.print(f"[red]Maintain failed: {e}[/red]")
@@ -471,10 +482,16 @@ def maintain(
     else:
         console.print(f"\n[bold]Maintain[/bold] profile={profile}")
         console.print(f"  OK: {report.get('ok')}")
+        console.print(f"  Capability: {report.get('capability_label')}")
         console.print(
             f"  Checks: passed={report.get('passed')} "
             f"failed={report.get('failed')} unknown={report.get('unknown')}"
         )
+        missing = report.get("missing_configuration") or []
+        if missing:
+            console.print("  Missing configuration:")
+            for item in missing:
+                console.print(f"    - {item}")
         drafts = report.get("drafts") or []
         if drafts:
             console.print(f"  Draft issues ({len(drafts)}):")

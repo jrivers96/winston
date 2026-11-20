@@ -30,6 +30,8 @@ Supercalc-shaped offline case (`supercalc-late-correction`):
 winston replay --case supercalc-late-correction --offline
 winston replay --bundle supercalc-stress-s2-correction --offline
 winston maintain --once --profile supercalc_synthetic --no-persist
+WINSTON_OFFLINE_MODE=false WINSTON_LIVE_SMOKE=1 \
+  winston maintain --once --profile supercalc_live --no-persist  # live SoR → same drafts
 winston doctor --profile supercalc_live
 winston live-smoke --profile supercalc_live   # reports missing live config unless opted in
 ```
