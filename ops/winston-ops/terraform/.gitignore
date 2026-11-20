@@ -1,8 +1,9 @@
 # Local Terraform artifacts — never commit state or real tfvars
+# Keep .terraform.lock.hcl in git for reproducible provider versions.
 .terraform/
-.terraform.lock.hcl
 *.tfstate
 *.tfstate.*
+tfplan
 crash.log
 crash.*.log
 terraform.tfvars

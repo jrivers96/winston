@@ -12,6 +12,7 @@ def test_terraform_skeleton_files_exist():
         "main.tf",
         "variables.tf",
         "apis.tf",
+        "network.tf",
         "sql.tf",
         "secrets.tf",
         "storage.tf",

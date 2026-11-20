@@ -105,7 +105,6 @@ Nightly also runs `maintain --once --no-persist` so a healthy synthetic trust lo
 
 ## Still ahead
 
-- **Create/link `winston-ops` GCP project + set `enable_resources=true`** — then `terraform apply` (explicit)
 - **Fill `profiles/supercalc_live.yaml`** — real read-only mappings only (never invent production names); use `bootstrap_live_profile.sh`
-- **Push Cloud Run nightly image** — see `ops/winston-ops/cloudrun/README.md`
-- **Staging maintain `--persist`** — after Cloud SQL, schedule `staging_maintain.sh`
+- **Push Cloud Run nightly image** — replace hello placeholder; see `ops/winston-ops/cloudrun/README.md`
+- **Staging maintain `--persist`** — use Secret Manager `winston-staging-database-url` + `staging_maintain.sh`

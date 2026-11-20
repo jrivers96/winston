@@ -24,5 +24,5 @@ resource "google_storage_bucket" "reports" {
 
   labels = local.labels
 
-  depends_on = [google_project_service.required]
+  depends_on = [time_sleep.api_propagation]
 }

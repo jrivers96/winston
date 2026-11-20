@@ -22,6 +22,7 @@ require_file() {
 require_file "main.tf"
 require_file "variables.tf"
 require_file "apis.tf"
+require_file "network.tf"
 require_file "sql.tf"
 require_file "secrets.tf"
 require_file "storage.tf"

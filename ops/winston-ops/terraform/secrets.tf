@@ -23,5 +23,5 @@ resource "google_secret_manager_secret" "live_smoke" {
     auto {}
   }
 
-  depends_on = [google_project_service.required]
+  depends_on = [time_sleep.api_propagation]
 }

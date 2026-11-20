@@ -12,7 +12,7 @@ resource "google_artifact_registry_repository" "winston" {
   project       = var.project_id
   labels        = local.labels
 
-  depends_on = [google_project_service.required]
+  depends_on = [time_sleep.api_propagation]
 }
 
 resource "google_cloud_run_v2_job" "nightly" {
@@ -25,6 +25,18 @@ resource "google_cloud_run_v2_job" "nightly" {
   template {
     template {
       service_account = google_service_account.nightly[0].email
+
+      vpc_access {
+        connector = google_vpc_access_connector.winston[0].id
+        egress    = "PRIVATE_RANGES_ONLY"
+      }
+
+      volumes {
+        name = "cloudsql"
+        cloud_sql_instance {
+          instances = [google_sql_database_instance.winston[0].connection_name]
+        }
+      }
 
       containers {
         # Replace after first image push:
@@ -40,8 +52,11 @@ resource "google_cloud_run_v2_job" "nightly" {
           value = "/tmp/nightly"
         }
 
-        # DATABASE_URL injected from Secret Manager when Cloud SQL is used
-        # for maintain --persist (offline replay does not require it).
+        # WINSTON_DATABASE_URL from Secret Manager for maintain --persist
+        volume_mounts {
+          name       = "cloudsql"
+          mount_path = "/cloudsql"
+        }
       }
 
       timeout = "1800s"
@@ -56,7 +71,7 @@ resource "google_cloud_run_v2_job" "nightly" {
   }
 
   depends_on = [
-    google_project_service.required,
+    time_sleep.api_propagation,
     google_artifact_registry_repository.winston,
   ]
 }

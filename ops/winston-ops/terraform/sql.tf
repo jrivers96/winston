@@ -15,14 +15,18 @@ resource "google_sql_database_instance" "winston" {
   project          = var.project_id
 
   settings {
+    # ENTERPRISE (not PLUS) so db-f1-micro remains valid for cheap staging
+    edition           = "ENTERPRISE"
     tier              = var.sql_tier
     availability_type = "ZONAL"
     disk_size         = var.sql_disk_gb
     disk_type         = "PD_SSD"
 
     ip_configuration {
-      ipv4_enabled = true
-      # Restrict further (private IP / VPC) before any production-like use.
+      # Org policy sql.restrictPublicIp — private IP only
+      ipv4_enabled                                  = false
+      private_network                               = google_compute_network.winston[0].id
+      enable_private_path_for_google_cloud_services = true
     }
 
     backup_configuration {
@@ -36,7 +40,10 @@ resource "google_sql_database_instance" "winston" {
 
   deletion_protection = true
 
-  depends_on = [google_project_service.required]
+  depends_on = [
+    time_sleep.api_propagation,
+    google_service_networking_connection.sql_private,
+  ]
 }
 
 resource "google_sql_database" "winston" {
@@ -68,7 +75,7 @@ resource "google_secret_manager_secret" "database_url" {
     auto {}
   }
 
-  depends_on = [google_project_service.required]
+  depends_on = [time_sleep.api_propagation]
 }
 
 resource "google_secret_manager_secret_version" "database_url" {
