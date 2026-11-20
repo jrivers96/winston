@@ -18,8 +18,20 @@ if [[ -z "${WINSTON_DATABASE_URL:-}" ]]; then
 fi
 
 echo "Running maintain --once --persist (profile=$PROFILE)..."
+# Keep stderr visible in Cloud Logging; JSON report on stdout only.
+set +e
 winston maintain --once --profile "$PROFILE" --persist --format json \
   > "$OUT_DIR/maintain-report.json"
+maintain_rc=$?
+set -e
+if [[ ! -s "$OUT_DIR/maintain-report.json" ]]; then
+  echo "ERROR: maintain produced no report (exit=$maintain_rc)"
+  exit "${maintain_rc:-1}"
+fi
+if [[ "$maintain_rc" -ne 0 && "$maintain_rc" -ne 2 ]]; then
+  echo "ERROR: maintain failed (exit=$maintain_rc)"
+  exit "$maintain_rc"
+fi
 
 python - <<PY
 import json

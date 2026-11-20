@@ -73,8 +73,14 @@ class IssueRepository:
         self.session.add(model)
         self.session.flush()
         
-        # Create audit event
-        self._audit("issue_created", "issue", str(issue.id), None, issue.model_dump())
+        # Create audit event (mode=json so datetimes are ISO strings for JSONB)
+        self._audit(
+            "issue_created",
+            "issue",
+            str(issue.id),
+            None,
+            issue.model_dump(mode="json"),
+        )
         
         return issue
     
