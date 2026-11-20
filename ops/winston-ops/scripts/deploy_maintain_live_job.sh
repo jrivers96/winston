@@ -38,6 +38,9 @@ COMMON_ARGS=(
   --set-cloudsql-instances="$INSTANCE"
   --set-secrets=WINSTON_DATABASE_URL=winston-staging-database-url:latest,WINSTON_SUPERCALC_PG_PASSWORD=winston-staging-supercalc-pg-password:latest
   --set-env-vars=WINSTON_OFFLINE_MODE=false,WINSTON_LIVE_SMOKE=1,WINSTON_STAGING_OUT=/tmp/staging,WINSTON_MAINTAIN_PROFILE=supercalc_live,WINSTON_GCP_PROJECT="${PROJECT}"
+  # Explicit entrypoint so prior debug --command/--args overrides are replaced
+  --command=/bin/bash
+  --args=/app/ops/winston-ops/scripts/cloud_maintain_entrypoint.sh
   --max-retries=0
   --task-timeout=900
   --memory=1Gi
