@@ -19,13 +19,14 @@ REQUIRED_POSTGRES_TOP = (
     "auth_method",
     "credential_provider",
 )
+# Supercalc (polymarket-gvf) product tables — not generic calc-ops lineage slots
 REQUIRED_POSTGRES_MAPPINGS = (
     "index_definitions",
-    "calendars",
-    "executions",
-    "input_manifests",
-    "artifacts",
-    "selected_revisions",
+    "index_series",
+    "integrity_checks",
+    "hedge_alert_outcomes",
+    "risk_rollups",
+    "signals",
 )
 REQUIRED_DATADOG_TOP = ("site", "auth_method", "credential_provider")
 
@@ -147,7 +148,8 @@ def validate_live_contract(profile_data: Dict[str, Any]) -> Dict[str, Any]:
         "ready_for_live_smoke": ready,
         "missing": missing,
         "warnings": warnings,
-        "capability_label": "live-verified" if ready else "live-template",
+        # Contracts-ready is not live-verified — only a successful read earns that
+        "capability_label": "live-template",
         "postgres_configured": all(
             not _blank(postgres.get(k)) for k in REQUIRED_POSTGRES_TOP
         ),

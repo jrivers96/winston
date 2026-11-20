@@ -61,19 +61,24 @@ Terraform defaults to `enable_resources=false` (no billable creates). Local Dev 
 
 ## Phase D — Opt-in live smoke
 
-Supercalc’s system of record is **Postgres** (not Databricks). Live smoke uses a
+Supercalc’s system of record is **Postgres** (`polymarket_gvf` on Cloud SQL
+`adept-snow-481601-c6:us-central1:polymarket-gvf-db-small`). Live smoke uses a
 read-only Postgres contract; Winston Cloud SQL remains separate agent state.
 
-- Template: `profiles/supercalc_live.yaml.example` (empty slots — no invented production names)
-- Copy to `profiles/supercalc_live.yaml` (gitignored) and fill real **view/table + column** mappings
-- Prefer Supercalc-owned **views** across project boundaries
+Mappings follow **polymarket-gvf** tables (not generic calc-ops lineage slots):
+`discovered_index_definitions`, `indexes`, `integrity_checks`,
+`hedge_alert_outcomes`, `risk_rollups`, `signals`.
+
+- Template: `profiles/supercalc_live.yaml.example`
+- Local filled profile: `profiles/supercalc_live.yaml` (gitignored)
 - Gate: `WINSTON_LIVE_SMOKE=1` and `WINSTON_OFFLINE_MODE=false`
 - CLI: `winston live-smoke --profile supercalc_live`
-- Doctor: `winston doctor --profile supercalc_live` lists missing `postgres.*` fields
-- Datadog is optional (`datadog.enabled: false` by default)
-- CI: `.github/workflows/live-smoke.yml` is **workflow_dispatch only** (never on PRs)
-- Labels: incomplete config → `live-template`; successful verified reads → `live-verified`
+- Doctor: `winston doctor --profile supercalc_live`
+- Datadog optional (`datadog.enabled: false`)
+- CI: `.github/workflows/live-smoke.yml` is **workflow_dispatch only**
+- Labels: incomplete → `live-template`; verified reads → `live-verified`
 - Forbidden: mutate / trigger jobs / publish / remediate
+- Network: private IP / Auth Proxy; password via `secret:winston-staging-supercalc-pg-password`
 
 ```bash
 winston doctor --profile supercalc_live

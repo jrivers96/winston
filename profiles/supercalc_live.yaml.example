@@ -1,14 +1,12 @@
-# Supercalc LIVE profile template (incomplete by design)
-# Copy to profiles/supercalc_live.yaml (gitignored locally) and fill real values.
-# Supercalc system of record is Postgres — not Databricks.
-# Do NOT invent production relation/column names. Leave blanks until known.
-# Secrets stay in env / Secret Manager — never in this file.
-# Prefer Supercalc-owned views over raw tables across project boundaries.
+# Supercalc LIVE profile template
+# Copy to profiles/supercalc_live.yaml (gitignored) before filling secrets/providers.
+# Source of truth: polymarket-gvf Postgres (Cloud SQL), not Winston agent DB.
+# Prefer read-only role + Auth Proxy / private path across projects.
 
 profile_id: supercalc_live
-description: "Opt-in live read-only smoke for Supercalc Postgres-shaped products"
-version: "0.2.0"
-capability_label: live-template  # becomes live-verified only after successful smoke
+description: "Opt-in live read-only smoke for Supercalc (polymarket-gvf) Postgres"
+version: "0.3.0"
+capability_label: live-template
 
 live_smoke:
   enabled_by_default: false
@@ -18,10 +16,12 @@ live_smoke:
     max_rows: 500
     max_seconds: 60
   allowed_operations:
-    - read_executions
-    - read_manifests
-    - read_state_refs
-    - read_calendars
+    - read_index_definitions
+    - read_index_series
+    - read_integrity_checks
+    - read_hedge_outcomes
+    - read_risk_rollups
+    - read_signals
   forbidden_operations:
     - mutate_data
     - trigger_jobs
@@ -29,96 +29,103 @@ live_smoke:
     - remediate_production
 
 postgres:
-  # Cross-project read-only access to Supercalc Postgres (not Winston Cloud SQL)
-  host: ""                       # private host / Auth Proxy endpoint — do not invent
+  # Real instance: adept-snow-481601-c6:us-central1:polymarket-gvf-db-small
+  # Leave host blank in the example; filled local profile may use private IP or Auth Proxy.
+  host: ""
   port: 5432
   database: ""
-  sslmode: ""                    # e.g. require | verify-full
-  auth_method: ""                # password | iam | cloudsql_iam
-  credential_provider: ""        # reference only, e.g. secret:winston-staging-supercalc-pg-password
+  sslmode: ""
+  auth_method: ""
+  credential_provider: ""
   connect_timeout_seconds: 30
   statement_timeout_seconds: 60
-  private_ip_required: true      # align with org public-IP restrictions
+  private_ip_required: true
   read_only: true
+  connection_name: ""   # e.g. project:region:instance for Cloud SQL Auth Proxy
   mappings:
-    # Prefer views Supercalc owns; relation = view or table name (no invented names)
+    # Tables/columns from polymarket-gvf/storage/models.py — leave blank in example
     index_definitions:
       relation: ""
       columns:
-        index_id: ""
-        environment: ""
-        owner: ""
-        calendar_ref: ""
-        timezone: ""
-    calendars:
-      relation: ""
-      columns:
-        calendar_id: ""
-        business_date: ""
-        is_calculation_day: ""
-        previous_calculation_date: ""
-        timezone: ""
-    executions:
-      relation: ""
-      columns:
-        execution_id: ""
-        index_id: ""
-        environment: ""
-        business_date: ""
-        attempt_id: ""
-        start_time: ""
-        end_time: ""
+        id: ""
+        index_name: ""
+        candidate_id: ""
         status: ""
-        input_manifest_id: ""
-        code_manifest_id: ""
-        output_ref: ""
-        state_ref: ""
-    input_manifests:
+        promoted_at: ""
+        retired_at: ""
+        last_score: ""
+        thresholds: ""
+        notes: ""
+        created_at: ""
+        updated_at: ""
+    index_series:
       relation: ""
       columns:
-        manifest_id: ""
-        execution_id: ""
-        parent_state_refs: ""
-        input_dataset_refs: ""
-        configuration_ref: ""
-    artifacts:
+        id: ""
+        timestamp: ""
+        index_name: ""
+        value: ""
+        index_metadata: ""
+        created_at: ""
+    integrity_checks:
       relation: ""
       columns:
-        artifact_id: ""
-        execution_id: ""
-        artifact_type: ""
-        schema_version: ""
-        content_hash: ""
-        storage_ref: ""
-    selected_revisions:
+        id: ""
+        run_ts: ""
+        check_name: ""
+        status: ""
+        observed: ""
+        threshold: ""
+        details: ""
+        created_at: ""
+    hedge_alert_outcomes:
       relation: ""
       columns:
-        index_id: ""
-        environment: ""
-        business_date: ""
-        selected_execution_id: ""
-        selection_policy: ""
-        selection_time: ""
+        id: ""
+        alerted_at: ""
+        market_id: ""
+        signal_type: ""
+        onset_ts: ""
+        horizon_minutes: ""
+        expected_edge: ""
+        one_leg_cost: ""
+        hit: ""
+        scored_at: ""
+        created_at: ""
+    risk_rollups:
+      relation: ""
+      columns:
+        id: ""
+        as_of_ts: ""
+        theme: ""
+        rollup_version: ""
+        n_markets: ""
+        transition_risk_mean: ""
+        transition_risk_max: ""
+        created_at: ""
+    signals:
+      relation: ""
+      columns:
+        id: ""
+        market_id: ""
+        timestamp: ""
+        signal_blob: ""
+        created_at: ""
 
-# Optional telemetry — not required for live-smoke readiness
 datadog:
   enabled: false
-  site: ""                     # e.g. datadoghq.com
-  auth_method: ""              # api_key | oauth
+  site: ""
+  auth_method: ""
   credential_provider: ""
   metrics: []
   services: []
 
 indices:
-  - id: ""                     # live index id once known
+  - id: ""
     environment: ""
     owner: ""
-    calendar_ref: ""
-    timezone: ""
-    description: "Fill with real Supercalc product identity — do not invent"
+    description: "Fill with a real Supercalc index_name from indexes / discovered_index_definitions"
 
 required_env:
   - WINSTON_LIVE_SMOKE=1
   - WINSTON_OFFLINE_MODE=false
-  # Credential env / secrets are organization-specific; document references only:
-  # - secret:winston-staging-supercalc-pg-password (or env via credential_provider)
